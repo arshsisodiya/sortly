@@ -14,7 +14,7 @@
 #define MyAppName        "Sortly"
 #define MyAppPublisher   "Arsh Sisodiya"
 #define MyAppURL         "https://github.com/sortly/sortly"
-#define MyAppExeName     "sortly-gui.exe"
+#define MyAppExeName     "Sortly.exe"
 ; Stable GUID — NEVER change this once published, or upgrades will break
 #define MyAppId          "{B8F2A14D-3E6C-4F01-9A7B-2D5C8E0F1A3B}"
 
@@ -88,7 +88,7 @@ Name: "desktopicon"; \
 ; ============================================================
 [Files]
 ; Copy entire PyInstaller onedir output (exe + all Qt/Python dlls)
-Source: "..\dist\sortly-gui\*"; \
+Source: "..\dist\Sortly\*"; \
   DestDir: "{app}"; \
   Flags: ignoreversion recursesubdirs createallsubdirs
 

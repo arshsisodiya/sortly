@@ -1660,7 +1660,10 @@ class FileOrganizerQtApp(QMainWindow):
 
 def main():
     app = QApplication(sys.argv)
-    app.setApplicationName("Sortly: Windows File Organizer")
+    app.setApplicationName("Sortly")
+    app.setApplicationDisplayName("Sortly")
+    app.setOrganizationName("Arsh Sisodiya")
+    app.setApplicationVersion("1.0.0")
     logo_path = _find_logo_path()
     if logo_path:
         app.setWindowIcon(QIcon(str(logo_path)))

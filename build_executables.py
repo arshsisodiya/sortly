@@ -247,7 +247,7 @@ def build_gui():
         sys.executable, "-m", "PyInstaller",
         "--onedir",
         "--windowed",           # No console window for GUI
-        "--name", "sortly-gui",
+        "--name", "Sortly",
         "--add-data", f"{BASE_DIR / 'assets'}{os.pathsep}assets",
         "--hidden-import", "watchdog.observers",
         "--hidden-import", "watchdog.observers.polling",
@@ -265,8 +265,8 @@ def build_gui():
     ]
     result = subprocess.run(cmd, cwd=BASE_DIR)
     if result.returncode == 0:
-        _strip_unused_qt_dlls(DIST_DIR / "sortly-gui")
-        print("  OK  GUI built: dist/sortly-gui/sortly-gui.exe")
+        _strip_unused_qt_dlls(DIST_DIR / "Sortly")
+        print("  OK  GUI built: dist/Sortly/Sortly.exe")
     else:
         print("  ERR GUI build failed.")
     return result.returncode == 0
@@ -346,7 +346,7 @@ def main():
         print("  Build complete!")
         print(f"\n  Output files:")
         print(f"    dist/sortly-cli.exe             -- Portable CLI tool")
-        print(f"    dist/sortly-gui/sortly-gui.exe  -- GUI application (onedir)")
+        print(f"    dist/Sortly/Sortly.exe          -- GUI application (onedir)")
         if ok_installer:
             print(f"    dist/SortlySetup-{version}.exe  -- Windows installer")
         print(f"\n  CLI usage:")
