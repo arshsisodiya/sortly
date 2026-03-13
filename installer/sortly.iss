@@ -12,7 +12,7 @@
 #endif
 
 #define MyAppName        "Sortly"
-#define MyAppPublisher   "Sortly"
+#define MyAppPublisher   "Arsh Sisodiya"
 #define MyAppURL         "https://github.com/sortly/sortly"
 #define MyAppExeName     "sortly-gui.exe"
 ; Stable GUID — NEVER change this once published, or upgrades will break
@@ -69,7 +69,7 @@ VersionInfoProductName={#MyAppName}
 VersionInfoProductVersion={#MyAppVersion}
 VersionInfoCompany={#MyAppPublisher}
 VersionInfoDescription={#MyAppName} Setup
-VersionInfoCopyright=Copyright (C) 2026 {#MyAppPublisher}
+VersionInfoCopyright=Copyright (C) 2026 Arsh Sisodiya
 
 ; Minimum Windows version: Windows 10
 MinVersion=10.0
