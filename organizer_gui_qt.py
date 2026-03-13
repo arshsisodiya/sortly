@@ -40,6 +40,7 @@ from PySide6.QtWidgets import (
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from organizer_core import CATEGORIES, FileOrganizer, OrganizationPlan, Settings
 from movie_detector import MovieDetector
+from smart_presets import apply_preset, preset_names
 
 
 class MonitorBridge(QObject):
@@ -376,6 +377,28 @@ class FileOrganizerQtApp(QMainWindow):
         self._update_schedule_timer()
         self._log(f"Scheduled auto-organize set to: {enabled} every {interval} minute(s)")
 
+    def _apply_selected_preset(self):
+        name = self.preset_selector.currentText().strip()
+        if not name:
+            return
+        preset = apply_preset(name)
+        for key, value in preset.items():
+            self.settings.set(key, value)
+
+        self.organizer.settings = self.settings
+        self.organizer.categorizer.custom_rules = self.settings.get("custom_rules", [])
+        self._refresh_rules_list()
+        self._refresh_category_mapping_list()
+        self._refresh_conflict_policy_list()
+        self.media_detection_checkbox.setChecked(bool(self.settings.get("enable_smart_media_detection", True)))
+        self.duplicate_detection_checkbox.setChecked(bool(self.settings.get("enable_duplicate_detection", False)))
+        self.protected_files_checkbox.setChecked(bool(self.settings.get("protect_recent_files", False)))
+        protected_value = str(self.settings.get("protect_recent_minutes", 30))
+        protected_index = self.protected_minutes.findText(protected_value)
+        if protected_index >= 0:
+            self.protected_minutes.setCurrentIndex(protected_index)
+        self._log(f"Applied smart preset: {name}", "success")
+
     def _update_schedule_timer(self):
         enabled = bool(self.settings.get("schedule_enabled", False))
         interval = int(self.settings.get("schedule_interval_minutes", 15))
@@ -502,6 +525,21 @@ class FileOrganizerQtApp(QMainWindow):
         self.theme_toggle.setChecked(self._theme_mode == "dark")
         self.theme_toggle.stateChanged.connect(self._on_theme_toggled)
         sidebar_layout.addWidget(self.theme_toggle)
+
+        preset_label = QLabel("Smart Presets")
+        preset_label.setStyleSheet("font-weight: 600;")
+        sidebar_layout.addWidget(preset_label)
+
+        preset_row = QHBoxLayout()
+        sidebar_layout.addLayout(preset_row)
+
+        self.preset_selector = QComboBox()
+        self.preset_selector.addItems(preset_names())
+        preset_row.addWidget(self.preset_selector, 1)
+
+        apply_preset_btn = QPushButton("Apply")
+        apply_preset_btn.clicked.connect(self._apply_selected_preset)
+        preset_row.addWidget(apply_preset_btn)
 
         schedule_label = QLabel("Scheduled Auto-Organize")
         schedule_label.setStyleSheet("font-weight: 600;")
