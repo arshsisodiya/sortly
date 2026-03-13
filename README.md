@@ -78,7 +78,7 @@ python build_executables.py
 ```
 
 Produces `dist/Sortly/Sortly.exe` (GUI), `dist/sortly-cli.exe` (CLI), and `dist/SortlySetup-1.0.0.exe` (Windows installer, requires [Inno Setup 6](https://jrsoftware.org/isinfo.php)).
-Also packages `dist/SortlyPortable-1.0.0.zip` for a no-install portable GUI build.
+Also builds `dist/SortlyPortable.exe` for a no-install portable GUI build.
 
 ---
 
@@ -184,7 +184,7 @@ git tag v1.0.0
 git push origin v1.0.0
 ```
 
-The GitHub Actions workflow builds `SortlySetup-1.0.0.exe`, `SortlyPortable-1.0.0.zip`, and `sortly-cli.exe`, then creates a GitHub Release with all three as downloadable assets.
+The GitHub Actions workflow builds `SortlySetup-1.0.0.exe`, `SortlyPortable.exe`, and `sortly-cli.exe`, then creates a GitHub Release with all three as downloadable assets.
 
 ---
 

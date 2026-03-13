@@ -88,7 +88,7 @@ Download `SortlySetup-x.y.z.exe` from the [Releases](https://github.com/your-use
 
 ### Portable builds
 
-- Download `SortlyPortable-x.y.z.zip` from Releases, extract it anywhere, and run `Sortly.exe`.
+- Download `SortlyPortable.exe` from Releases and run it directly.
 - Download `sortly-cli.exe` from Releases for a standalone CLI — no installer, no Python required.
 
 ---
@@ -831,7 +831,7 @@ python build_executables.py
 3. Builds `dist/sortly-cli.exe` — portable CLI (PyInstaller `--onefile`)
 4. Builds `dist/Sortly/` — GUI onedir bundle (PyInstaller `--onedir`)
 5. Strips unused Qt DLLs from the onedir bundle
-6. Packages `dist/SortlyPortable-x.y.z.zip` from the GUI folder for no-install usage
+6. Builds `dist/SortlyPortable.exe` as a no-install portable GUI (`--onefile`)
 7. Compiles `dist/SortlySetup-x.y.z.exe` using Inno Setup (if ISCC.exe found)
 
 ### Build without installer (CI mode)
@@ -852,7 +852,7 @@ python build_executables.py --skip-installer
 |---|---|
 | `dist/sortly-cli.exe` | Portable single-file CLI — no install needed |
 | `dist/Sortly/Sortly.exe` | GUI app (onedir — run from the folder) |
-| `dist/SortlyPortable-1.0.0.zip` | Portable GUI package (extract and run `Sortly.exe`) |
+| `dist/SortlyPortable.exe` | Portable GUI executable (single file, no install) |
 | `dist/SortlySetup-1.0.0.exe` | Windows installer with Start Menu shortcuts and uninstaller |
 
 ---
@@ -881,7 +881,7 @@ The workflow:
 5. Runs `python build_executables.py --skip-installer`
 6. Installs Inno Setup via Chocolatey
 7. Compiles the installer with ISCC
-8. Creates a GitHub Release with `SortlySetup-x.y.z.exe`, `SortlyPortable-x.y.z.zip`, and `sortly-cli.exe` as assets
+8. Creates a GitHub Release with `SortlySetup-x.y.z.exe`, `SortlyPortable.exe`, and `sortly-cli.exe` as assets
 
 **Pre-releases:** tags with a hyphen (e.g. `v1.1.0-beta.1`) are automatically published as pre-releases.
 

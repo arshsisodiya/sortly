@@ -3,7 +3,7 @@
 Usage:
     python build_executables.py               # build everything (PyInstaller + Inno Setup)
     python build_executables.py --skip-installer  # PyInstaller only (used by CI before ISCC step)
-    python build_executables.py --skip-portable   # skip portable ZIP packaging
+    python build_executables.py --skip-portable   # skip portable GUI onefile build
 """
 
 import os
@@ -225,9 +225,8 @@ def _strip_unused_qt_dlls(gui_dist_dir: Path) -> None:
         print(f"  Stripped {removed} unused Qt DLLs ({saved / 1_048_576:.1f} MB freed)")
 
 
-def build_gui():
-    """Build the GUI executable (onedir for fast startup and Inno Setup packaging)."""
-    print("\n[*] Building GUI executable...")
+def _gui_common_args() -> list[str]:
+    """Common PyInstaller args for GUI builds."""
 
     upx_dir = _find_or_download_upx()
     upx_flags = ["--upx-dir", str(upx_dir)] if upx_dir else ["--noupx"]
@@ -245,11 +244,8 @@ def build_gui():
     for mod in _QT_EXCLUDE_MODULES:
         exclude_flags += ["--exclude-module", mod]
 
-    cmd = [
-        sys.executable, "-m", "PyInstaller",
-        "--onedir",
+    return [
         "--windowed",           # No console window for GUI
-        "--name", "Sortly",
         "--add-data", f"{BASE_DIR / 'assets'}{os.pathsep}assets",
         "--hidden-import", "watchdog.observers",
         "--hidden-import", "watchdog.observers.polling",
@@ -265,12 +261,24 @@ def build_gui():
         *icon_flag,
         str(BASE_DIR / "sortly_gui_qt.py"),
     ]
+
+
+def build_gui_onedir() -> bool:
+    """Build GUI onedir bundle for Inno Setup packaging."""
+    print("\n[*] Building GUI onedir bundle...")
+
+    cmd = [
+        sys.executable, "-m", "PyInstaller",
+        "--onedir",
+        "--name", "Sortly",
+        *_gui_common_args(),
+    ]
     result = subprocess.run(cmd, cwd=BASE_DIR)
     if result.returncode == 0:
         _strip_unused_qt_dlls(DIST_DIR / "Sortly")
-        print("  OK  GUI built: dist/Sortly/Sortly.exe")
+        print("  OK  GUI onedir built: dist/Sortly/Sortly.exe")
     else:
-        print("  ERR GUI build failed.")
+        print("  ERR GUI onedir build failed.")
     return result.returncode == 0
 
 
@@ -305,25 +313,22 @@ def build_installer(version: str) -> bool:
         return False
 
 
-def build_portable_zip(version: str) -> bool:
-    """Create a portable ZIP from the GUI onedir output."""
-    print(f"\n[*] Building portable ZIP (v{version})...")
+def build_gui_portable_onefile() -> bool:
+    """Build portable GUI as a single-file executable."""
+    print("\n[*] Building portable GUI onefile executable...")
 
-    gui_dir = DIST_DIR / "Sortly"
-    if not gui_dir.exists():
-        print(f"  ERR GUI output not found: {gui_dir}")
-        return False
-
-    archive_base = DIST_DIR / f"SortlyPortable-{version}"
-    archive_path = archive_base.with_suffix(".zip")
-
-    if archive_path.exists():
-        archive_path.unlink()
-
-    shutil.make_archive(str(archive_base), "zip", root_dir=gui_dir)
-    size_mb = archive_path.stat().st_size / 1_048_576
-    print(f"  OK  Portable ZIP built: dist/{archive_path.name} ({size_mb:.1f} MB)")
-    return True
+    cmd = [
+        sys.executable, "-m", "PyInstaller",
+        "--onefile",
+        "--name", "SortlyPortable",
+        *_gui_common_args(),
+    ]
+    result = subprocess.run(cmd, cwd=BASE_DIR)
+    if result.returncode == 0:
+        print("  OK  Portable GUI built: dist/SortlyPortable.exe")
+    else:
+        print("  ERR Portable GUI build failed.")
+    return result.returncode == 0
 
 
 def main():
@@ -350,7 +355,7 @@ def main():
         watchdog_ver = importlib.metadata.version("watchdog")
         print(f"  watchdog {watchdog_ver} found.")
     except ImportError:
-        print("\n  ✗  watchdog not found. Install with:")
+        print("\n  ERR watchdog not found. Install with:")
         print("     pip install watchdog")
         sys.exit(1)
 
@@ -358,24 +363,24 @@ def main():
     clean()
 
     ok_cli = build_cli()
-    ok_gui = build_gui()
+    ok_gui = build_gui_onedir()
     ok_portable = True
     ok_installer = True
 
-    if ok_gui and not SKIP_PORTABLE:
-        ok_portable = build_portable_zip(version)
+    if not SKIP_PORTABLE:
+        ok_portable = build_gui_portable_onefile()
 
     if ok_gui and not SKIP_INSTALLER:
         ok_installer = build_installer(version)
 
     print("\n" + "=" * 60)
-    if ok_cli and ok_gui:
+    if ok_cli and ok_gui and ok_portable:
         print("  Build complete!")
         print(f"\n  Output files:")
         print(f"    dist/sortly-cli.exe             -- Portable CLI tool")
-        print(f"    dist/Sortly/Sortly.exe          -- GUI application (onedir)")
+        print(f"    dist/Sortly/Sortly.exe          -- GUI bundle for installer (onedir)")
         if ok_portable:
-            print(f"    dist/SortlyPortable-{version}.zip -- Portable GUI (no installer)")
+            print(f"    dist/SortlyPortable.exe         -- Portable GUI (onefile)")
         if ok_installer:
             print(f"    dist/SortlySetup-{version}.exe  -- Windows installer")
         print(f"\n  CLI usage:")

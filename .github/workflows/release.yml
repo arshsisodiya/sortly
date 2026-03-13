@@ -103,4 +103,4 @@ jobs:
           files: |
             dist/SortlySetup-${{ steps.version.outputs.VERSION }}.exe
             dist/sortly-cli.exe
-            dist/SortlyPortable-${{ steps.version.outputs.VERSION }}.zip
+            dist/SortlyPortable.exe
