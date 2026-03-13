@@ -1,0 +1,1649 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Sortly — Chaos in. Order out.</title>
+<meta name="description" content="Sortly is a free, open-source Windows file organizer that automatically sorts your folders by file type. Smart. Fast. Secure."/>
+<meta property="og:title" content="Sortly — Chaos in. Order out."/>
+<meta property="og:description" content="Free, open-source Windows file organizer. Sorts your files automatically."/>
+<meta property="og:type" content="website"/>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,300&display=swap" rel="stylesheet"/>
+<style>
+/* ── Reset & Base ─────────────────────────────────────────── */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:        #060A10;
+  --bg2:       #0C1220;
+  --bg3:       #111827;
+  --surface:   #16202E;
+  --border:    rgba(255,255,255,0.07);
+  --border2:   rgba(255,255,255,0.12);
+  --blue:      #1A72F0;
+  --blue2:     #3D8EF5;
+  --blue-dim:  rgba(26,114,240,0.15);
+  --amber:     #FBBF24;
+  --amber-dim: rgba(251,191,36,0.12);
+  --green:     #34D399;
+  --purple:    #A78BFA;
+  --red:       #FB7185;
+  --sky:       #38BDF8;
+  --text:      #EFF6FF;
+  --text2:     #94A3B8;
+  --text3:     #475569;
+  --radius:    12px;
+  --radius-lg: 20px;
+  --sans:      'DM Sans', sans-serif;
+  --display:   'Syne', sans-serif;
+}
+html{scroll-behavior:smooth}
+body{
+  background:var(--bg);
+  color:var(--text);
+  font-family:var(--sans);
+  font-size:16px;
+  line-height:1.6;
+  overflow-x:hidden;
+}
+a{color:inherit;text-decoration:none}
+img{display:block;max-width:100%}
+
+/* ── Noise texture overlay ───────────────────────────────── */
+body::before{
+  content:'';
+  position:fixed;inset:0;
+  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E");
+  opacity:0.022;
+  pointer-events:none;
+  z-index:9999;
+}
+
+/* ── Grid background ─────────────────────────────────────── */
+body::after{
+  content:'';
+  position:fixed;inset:0;
+  background-image:
+    linear-gradient(rgba(26,114,240,0.04) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(26,114,240,0.04) 1px,transparent 1px);
+  background-size:60px 60px;
+  pointer-events:none;
+  z-index:0;
+}
+
+/* ── Typography ──────────────────────────────────────────── */
+h1,h2,h3,h4{font-family:var(--display);font-weight:800;line-height:1.1;letter-spacing:-0.03em}
+h1{font-size:clamp(3rem,7vw,6rem)}
+h2{font-size:clamp(2rem,4vw,3rem)}
+h3{font-size:1.25rem;font-weight:700}
+.mono{font-family:'DM Mono',monospace;font-size:0.8em;letter-spacing:0.05em}
+
+/* ── Layout ──────────────────────────────────────────────── */
+.container{max-width:1100px;margin:0 auto;padding:0 24px}
+section{position:relative;z-index:1}
+
+/* ── Utility ─────────────────────────────────────────────── */
+.amber{color:var(--amber)}
+.blue{color:var(--blue2)}
+.green{color:var(--green)}
+.dim{color:var(--text2)}
+.tag{
+  display:inline-flex;align-items:center;gap:6px;
+  font-family:var(--display);font-size:0.7rem;font-weight:700;
+  letter-spacing:0.12em;text-transform:uppercase;
+  padding:5px 12px;border-radius:100px;
+  border:1px solid var(--border2);
+  color:var(--text2);
+  background:rgba(255,255,255,0.03);
+}
+.tag .dot{width:6px;height:6px;border-radius:50%;background:var(--green);animation:pulse 2s ease infinite}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:0.5;transform:scale(0.8)}}
+
+/* ── Navigation ──────────────────────────────────────────── */
+nav{
+  position:fixed;top:0;left:0;right:0;z-index:100;
+  padding:0 24px;
+  height:64px;
+  display:flex;align-items:center;justify-content:space-between;
+  border-bottom:1px solid var(--border);
+  background:rgba(6,10,16,0.82);
+  backdrop-filter:blur(20px);
+  -webkit-backdrop-filter:blur(20px);
+}
+.nav-logo{
+  font-family:var(--display);font-weight:800;font-size:1.3rem;
+  display:flex;align-items:center;gap:10px;
+}
+.nav-logo .icon-wrap{
+  width:32px;height:32px;
+  background:var(--blue);
+  border-radius:8px;
+  display:flex;align-items:center;justify-content:center;
+  position:relative;overflow:hidden;
+}
+.nav-logo .icon-wrap svg{width:20px;height:20px}
+.nav-links{display:flex;align-items:center;gap:28px;font-size:0.9rem;color:var(--text2)}
+.nav-links a:hover{color:var(--text);transition:color 0.2s}
+.nav-cta{
+  padding:8px 20px;
+  background:var(--blue);
+  color:#fff;font-weight:600;font-size:0.85rem;
+  border-radius:8px;
+  transition:background 0.2s,transform 0.15s;
+}
+.nav-cta:hover{background:var(--blue2);transform:translateY(-1px)}
+
+/* ── Hero ────────────────────────────────────────────────── */
+.hero{
+  min-height:100vh;
+  display:flex;align-items:center;
+  padding:120px 0 80px;
+  position:relative;overflow:hidden;
+}
+.hero-glow{
+  position:absolute;
+  top:-200px;left:50%;transform:translateX(-50%);
+  width:900px;height:600px;
+  background:radial-gradient(ellipse at center,rgba(26,114,240,0.18) 0%,transparent 70%);
+  pointer-events:none;
+}
+.hero-content{
+  display:grid;grid-template-columns:1fr 1fr;
+  align-items:center;gap:80px;
+}
+.hero-eyebrow{margin-bottom:24px}
+.hero-title{margin-bottom:20px}
+.hero-title em{font-style:normal;color:var(--amber)}
+.hero-sub{
+  font-size:1.15rem;color:var(--text2);
+  line-height:1.7;margin-bottom:40px;max-width:480px;
+}
+.hero-actions{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.btn-primary{
+  display:inline-flex;align-items:center;gap:10px;
+  padding:14px 28px;
+  background:var(--blue);
+  color:#fff;font-weight:600;font-size:1rem;
+  border-radius:var(--radius);
+  border:none;cursor:pointer;
+  transition:background 0.2s,transform 0.15s,box-shadow 0.2s;
+  box-shadow:0 0 0 0 rgba(26,114,240,0);
+}
+.btn-primary:hover{
+  background:var(--blue2);
+  transform:translateY(-2px);
+  box-shadow:0 8px 32px rgba(26,114,240,0.35);
+}
+.btn-primary:active{transform:translateY(0)}
+.btn-primary svg{width:18px;height:18px;flex-shrink:0}
+.btn-ghost{
+  display:inline-flex;align-items:center;gap:8px;
+  padding:14px 24px;
+  color:var(--text2);font-weight:500;font-size:0.95rem;
+  border-radius:var(--radius);
+  border:1px solid var(--border2);
+  background:transparent;cursor:pointer;
+  transition:color 0.2s,border-color 0.2s,background 0.2s;
+}
+.btn-ghost:hover{color:var(--text);border-color:rgba(255,255,255,0.25);background:rgba(255,255,255,0.04)}
+.hero-meta{
+  display:flex;align-items:center;gap:20px;margin-top:28px;
+  font-size:0.82rem;color:var(--text3);
+}
+.hero-meta span{display:flex;align-items:center;gap:5px}
+.hero-meta .check{color:var(--green);font-size:0.9rem}
+
+/* ── App mockup ──────────────────────────────────────────── */
+.hero-visual{position:relative}
+.mockup-wrap{
+  position:relative;
+  border-radius:var(--radius-lg);
+  overflow:hidden;
+  border:1px solid var(--border2);
+  background:var(--bg2);
+  box-shadow:
+    0 0 0 1px rgba(26,114,240,0.1),
+    0 40px 100px rgba(0,0,0,0.6),
+    0 0 80px rgba(26,114,240,0.08);
+  animation:float 6s ease-in-out infinite;
+}
+@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-12px)}}
+.mockup-bar{
+  height:40px;background:var(--bg3);
+  border-bottom:1px solid var(--border);
+  display:flex;align-items:center;gap:8px;padding:0 16px;
+}
+.mockup-dot{width:10px;height:10px;border-radius:50%}
+.mockup-title{
+  flex:1;text-align:center;
+  font-size:0.75rem;color:var(--text3);font-family:var(--display)
+}
+.mockup-body{padding:20px}
+.mockup-path{
+  background:var(--bg3);border:1px solid var(--border);
+  border-radius:8px;padding:8px 14px;
+  font-size:0.75rem;color:var(--text3);
+  margin-bottom:16px;display:flex;align-items:center;gap:8px;
+}
+.mockup-path .path-icon{color:var(--amber);font-size:0.9rem}
+.file-list{display:flex;flex-direction:column;gap:6px}
+.file-item{
+  display:flex;align-items:center;gap:10px;
+  padding:7px 10px;border-radius:8px;
+  background:rgba(255,255,255,0.025);
+  font-size:0.78rem;
+  border:1px solid transparent;
+  transition:all 0.3s;
+}
+.file-item.moving{
+  border-color:rgba(26,114,240,0.3);
+  background:rgba(26,114,240,0.06);
+  animation:move-anim 0.6s ease forwards;
+}
+@keyframes move-anim{
+  0%{transform:translateX(0);opacity:1}
+  40%{transform:translateX(8px);opacity:0.5}
+  100%{transform:translateX(0);opacity:1}
+}
+.file-ext{
+  width:36px;height:24px;border-radius:4px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:0.6rem;font-weight:700;font-family:var(--display);
+  flex-shrink:0;
+}
+.file-name{flex:1;color:var(--text2)}
+.file-arrow{color:var(--blue);font-size:0.8rem;opacity:0}
+.file-item.moving .file-arrow{opacity:1}
+.file-cat{
+  font-size:0.65rem;font-weight:600;
+  padding:2px 8px;border-radius:100px;
+  opacity:0;transition:opacity 0.3s 0.3s;
+}
+.file-item.done .file-cat{opacity:1}
+.cat-img{background:rgba(52,211,153,0.12);color:#34D399}
+.cat-vid{background:rgba(251,113,133,0.12);color:#FB7185}
+.cat-doc{background:rgba(96,207,255,0.12);color:#60CFFF}
+.cat-arc{background:rgba(251,191,36,0.12);color:#FBBF24}
+.cat-cod{background:rgba(167,139,250,0.12);color:#A78BFA}
+.mockup-status{
+  margin-top:14px;padding:10px 14px;
+  background:rgba(52,211,153,0.07);
+  border:1px solid rgba(52,211,153,0.15);
+  border-radius:8px;
+  display:flex;align-items:center;gap:8px;
+  font-size:0.75rem;color:var(--green);
+}
+.status-dot{width:7px;height:7px;border-radius:50%;background:var(--green);animation:pulse 1.5s ease infinite}
+.download-info{
+  margin-top:12px;
+  font-size:0.72rem;color:var(--text3);
+  text-align:center;
+}
+#dl-version{color:var(--amber);font-weight:600}
+
+/* ── Stats bar ───────────────────────────────────────────── */
+.stats-bar{
+  position:relative;z-index:1;
+  border-top:1px solid var(--border);
+  border-bottom:1px solid var(--border);
+  background:rgba(255,255,255,0.015);
+  padding:32px 0;
+}
+.stats-grid{
+  display:grid;grid-template-columns:repeat(4,1fr);
+  divide-x:1px solid var(--border);
+  gap:0;
+}
+.stat{
+  text-align:center;padding:0 24px;
+  border-right:1px solid var(--border);
+}
+.stat:last-child{border-right:none}
+.stat-number{
+  font-family:var(--display);font-weight:800;
+  font-size:2.4rem;line-height:1;
+  margin-bottom:6px;
+}
+.stat-label{font-size:0.82rem;color:var(--text3)}
+
+/* ── Screenshots ─────────────────────────────────────────── */
+.screenshots{padding:110px 0}
+
+.shots-carousel-wrap{
+  position:relative;
+  margin-top:56px;
+}
+
+/* The visible viewport — clips overflowing slides */
+.shots-viewport{
+  overflow:hidden;
+  border-radius:20px;
+}
+
+/* The scrolling track — no scrollbar, no overflow-x visible */
+.shots-grid{
+  display:flex;
+  gap:20px;
+  transition:transform 0.5s cubic-bezier(0.4,0,0.2,1);
+  will-change:transform;
+  padding:4px 2px;
+}
+
+/* Each card is horizontal / landscape */
+.shot-card{
+  position:relative;
+  flex:0 0 calc(50% - 10px);
+  border:1px solid var(--border2);
+  border-radius:16px;
+  overflow:hidden;
+  background:var(--bg2);
+  box-shadow:0 16px 36px rgba(0,0,0,0.35);
+  transition:box-shadow 0.3s, border-color 0.3s;
+}
+.shot-card:hover{
+  border-color:rgba(26,114,240,0.35);
+  box-shadow:0 20px 48px rgba(0,0,0,0.5), 0 0 0 1px rgba(26,114,240,0.12);
+}
+.shot-card img{
+  width:100%;
+  height:auto;
+  object-fit:cover;
+  aspect-ratio:16 / 9;
+  display:block;
+  cursor:zoom-in;
+  transition:transform 0.4s ease;
+}
+.shot-card:hover img{transform:scale(1.025)}
+
+/* Bottom gradient + label overlay */
+.shot-card::after{
+  content:'';
+  position:absolute;
+  inset:auto 0 0 0;
+  height:40%;
+  background:linear-gradient(180deg,rgba(6,10,16,0) 0%,rgba(6,10,16,0.88) 100%);
+  pointer-events:none;
+}
+.shot-card.featured{/* same as others in horizontal layout */}
+
+.shot-label{
+  position:absolute;
+  left:16px;
+  bottom:14px;
+  z-index:2;
+  display:flex;
+  align-items:center;
+  gap:8px;
+  color:var(--text);
+  font-size:0.88rem;
+  font-weight:600;
+}
+.shot-label .pill{
+  font-family:var(--display);
+  font-size:0.65rem;
+  letter-spacing:0.08em;
+  text-transform:uppercase;
+  padding:3px 9px;
+  border-radius:100px;
+  background:rgba(26,114,240,0.28);
+  border:1px solid rgba(61,142,245,0.45);
+  color:#CFE4FF;
+}
+
+/* ── Prev / Next arrow buttons ── */
+.shots-nav{
+  position:absolute;
+  top:50%;
+  transform:translateY(-50%);
+  z-index:10;
+  width:44px;
+  height:44px;
+  border-radius:50%;
+  border:1px solid var(--border2);
+  background:rgba(12,18,32,0.85);
+  backdrop-filter:blur(8px);
+  -webkit-backdrop-filter:blur(8px);
+  color:var(--text);
+  cursor:pointer;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  transition:background 0.2s, border-color 0.2s, transform 0.2s, opacity 0.2s;
+  box-shadow:0 4px 20px rgba(0,0,0,0.4);
+}
+.shots-nav:hover{
+  background:rgba(26,114,240,0.25);
+  border-color:rgba(26,114,240,0.5);
+  transform:translateY(-50%) scale(1.08);
+}
+.shots-nav:active{transform:translateY(-50%) scale(0.96)}
+.shots-nav.disabled{opacity:0.25;pointer-events:none}
+.shots-nav svg{width:18px;height:18px;flex-shrink:0}
+.shots-prev{left:-22px}
+.shots-next{right:-22px}
+
+/* ── Dot indicators ── */
+.shots-dots{
+  display:flex;
+  justify-content:center;
+  gap:7px;
+  margin-top:22px;
+}
+.shots-dot{
+  width:7px;height:7px;border-radius:50%;
+  background:var(--border2);
+  cursor:pointer;
+  transition:background 0.25s, transform 0.25s, width 0.25s;
+  border:none;padding:0;
+}
+.shots-dot.active{
+  background:var(--blue);
+  width:22px;
+  border-radius:100px;
+}
+
+.shots-note{
+  margin-top:10px;
+  font-size:0.8rem;
+  color:var(--text3);
+  text-align:center;
+}
+
+/* ── Screenshot modal ────────────────────────────────────── */
+.shot-modal{
+  position:fixed;
+  inset:0;
+  background:rgba(3,6,12,0.9);
+  backdrop-filter:blur(6px);
+  -webkit-backdrop-filter:blur(6px);
+  display:none;
+  align-items:center;
+  justify-content:center;
+  z-index:10000;
+  padding:24px;
+}
+.shot-modal.open{display:flex}
+.shot-modal-content{
+  position:relative;
+  max-width:min(92vw,720px);
+  max-height:90vh;
+  width:100%;
+}
+.shot-modal img{
+  width:100%;
+  max-height:82vh;
+  object-fit:contain;
+  border-radius:14px;
+  border:1px solid var(--border2);
+  box-shadow:0 20px 70px rgba(0,0,0,0.65);
+}
+.shot-modal-caption{
+  margin-top:10px;
+  text-align:center;
+  color:var(--text2);
+  font-size:0.9rem;
+}
+.shot-modal-close{
+  position:absolute;
+  top:-10px;
+  right:-10px;
+  width:34px;
+  height:34px;
+  border:none;
+  border-radius:50%;
+  background:rgba(255,255,255,0.12);
+  color:#fff;
+  font-size:1.1rem;
+  cursor:pointer;
+}
+body.modal-open{overflow:hidden}
+
+/* ── Features ────────────────────────────────────────────── */
+.features{padding:120px 0}
+.section-head{text-align:center;margin-bottom:72px}
+.section-head .tag{margin-bottom:20px}
+.section-head h2{margin-bottom:16px}
+.section-head p{font-size:1.1rem;color:var(--text2);max-width:560px;margin:0 auto}
+
+.features-grid{
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:2px;
+  background:var(--border);
+  border:1px solid var(--border);
+  border-radius:var(--radius-lg);
+  overflow:hidden;
+}
+.feature-card{
+  background:var(--bg);
+  padding:36px 32px;
+  position:relative;
+  overflow:hidden;
+  transition:background 0.3s;
+}
+.feature-card:hover{background:var(--bg2)}
+.feature-card::before{
+  content:'';position:absolute;
+  top:0;left:0;right:0;height:1px;
+  background:linear-gradient(90deg,transparent,rgba(26,114,240,0.4),transparent);
+  opacity:0;transition:opacity 0.3s;
+}
+.feature-card:hover::before{opacity:1}
+.feature-card.span2{grid-column:span 2}
+.feat-icon{
+  width:44px;height:44px;border-radius:10px;
+  display:flex;align-items:center;justify-content:center;
+  margin-bottom:20px;font-size:1.4rem;
+}
+.feat-icon.blue{background:var(--blue-dim);color:var(--blue2)}
+.feat-icon.amber{background:var(--amber-dim);color:var(--amber)}
+.feat-icon.green{background:rgba(52,211,153,0.12);color:var(--green)}
+.feat-icon.purple{background:rgba(167,139,250,0.12);color:var(--purple)}
+.feat-icon.red{background:rgba(251,113,133,0.12);color:var(--red)}
+.feat-icon.sky{background:rgba(56,189,248,0.12);color:var(--sky)}
+.feature-card h3{margin-bottom:10px;font-size:1.1rem}
+.feature-card p{color:var(--text2);font-size:0.9rem;line-height:1.6}
+.feat-tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:16px}
+.feat-tag{
+  padding:3px 10px;border-radius:100px;
+  font-size:0.7rem;font-weight:600;
+  font-family:var(--display);
+}
+
+/* ── How it works ────────────────────────────────────────── */
+.how{padding:100px 0;background:var(--bg2);border-top:1px solid var(--border);border-bottom:1px solid var(--border)}
+.steps{
+  display:grid;grid-template-columns:repeat(4,1fr);
+  gap:2px;margin-top:56px;
+  position:relative;
+}
+.steps::before{
+  content:'';
+  position:absolute;top:28px;left:calc(12.5% + 20px);right:calc(12.5% + 20px);
+  height:1px;background:linear-gradient(90deg,var(--blue-dim),var(--blue-dim));
+  z-index:0;
+}
+.step{text-align:center;padding:0 20px;position:relative;z-index:1}
+.step-num{
+  width:56px;height:56px;border-radius:50%;
+  background:var(--bg3);border:1px solid var(--border2);
+  display:flex;align-items:center;justify-content:center;
+  margin:0 auto 20px;
+  font-family:var(--display);font-weight:800;font-size:1.1rem;
+  color:var(--amber);
+  position:relative;
+}
+.step-num::after{
+  content:'';position:absolute;inset:-4px;
+  border-radius:50%;border:1px solid var(--amber-dim);
+}
+.step h3{margin-bottom:8px;font-size:0.95rem}
+.step p{color:var(--text2);font-size:0.85rem;line-height:1.6}
+
+/* ── Categories ──────────────────────────────────────────── */
+.categories{padding:100px 0}
+.cats-grid{
+  display:grid;grid-template-columns:repeat(4,1fr);
+  gap:12px;margin-top:56px;
+}
+.cat-card{
+  border:1px solid var(--border);
+  border-radius:var(--radius);
+  padding:20px;
+  background:var(--bg2);
+  transition:border-color 0.2s,transform 0.2s;
+}
+.cat-card:hover{border-color:var(--border2);transform:translateY(-2px)}
+.cat-emoji{font-size:1.8rem;margin-bottom:12px}
+.cat-card h3{font-size:0.9rem;margin-bottom:6px}
+.cat-card p{font-size:0.75rem;color:var(--text3);line-height:1.5}
+.cat-count{
+  display:inline-block;margin-top:10px;
+  font-size:0.65rem;font-weight:700;
+  font-family:var(--display);color:var(--text3);
+  background:rgba(255,255,255,0.04);
+  padding:2px 8px;border-radius:100px;
+  border:1px solid var(--border);
+}
+
+/* ── Open source & security ──────────────────────────────── */
+.trust{padding:100px 0;background:var(--bg2);border-top:1px solid var(--border);border-bottom:1px solid var(--border)}
+.trust-grid{display:grid;grid-template-columns:1fr 1fr;gap:48px;align-items:center}
+.trust-text .tag{margin-bottom:24px}
+.trust-text h2{margin-bottom:20px}
+.trust-text p{color:var(--text2);line-height:1.7;margin-bottom:16px}
+.trust-points{display:flex;flex-direction:column;gap:14px;margin-top:28px}
+.trust-point{
+  display:flex;align-items:flex-start;gap:12px;
+  padding:16px;border-radius:var(--radius);
+  background:rgba(255,255,255,0.025);
+  border:1px solid var(--border);
+}
+.trust-point-icon{
+  width:32px;height:32px;border-radius:8px;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;
+  font-size:1rem;
+}
+.trust-point h4{font-size:0.9rem;margin-bottom:3px}
+.trust-point p{font-size:0.82rem;color:var(--text2)}
+
+.code-box{
+  background:var(--bg3);
+  border:1px solid var(--border2);
+  border-radius:var(--radius-lg);
+  overflow:hidden;
+  font-family:'DM Mono',monospace;
+  box-shadow:0 20px 60px rgba(0,0,0,0.4);
+}
+.code-header{
+  padding:12px 20px;
+  background:rgba(255,255,255,0.03);
+  border-bottom:1px solid var(--border);
+  display:flex;align-items:center;gap:8px;
+}
+.code-dot{width:10px;height:10px;border-radius:50%}
+.code-filename{
+  flex:1;text-align:center;font-size:0.72rem;color:var(--text3)
+}
+.code-body{padding:24px;font-size:0.78rem;line-height:1.9;color:var(--text2)}
+.code-body .kw{color:#FB7185}
+.code-body .fn{color:#38BDF8}
+.code-body .str{color:#34D399}
+.code-body .cm{color:var(--text3);font-style:italic}
+.code-body .num{color:#FBBF24}
+
+/* ── CLI section ─────────────────────────────────────────── */
+.cli{padding:100px 0}
+.cli-inner{
+  display:grid;grid-template-columns:1fr 1fr;
+  gap:64px;align-items:center;
+}
+.terminal{
+  background:#050810;
+  border:1px solid var(--border2);
+  border-radius:var(--radius-lg);
+  overflow:hidden;
+  box-shadow:0 20px 60px rgba(0,0,0,0.5);
+}
+.terminal-bar{
+  padding:12px 20px;
+  background:rgba(255,255,255,0.03);
+  border-bottom:1px solid var(--border);
+  display:flex;align-items:center;gap:8px;
+}
+.term-dot{width:10px;height:10px;border-radius:50%}
+.terminal-body{padding:24px;font-family:'DM Mono',monospace;font-size:0.78rem;line-height:2}
+.term-prompt{color:var(--green)}
+.term-cmd{color:var(--text)}
+.term-out{color:var(--text3)}
+.term-success{color:var(--green)}
+.term-info{color:var(--sky)}
+.term-amber{color:var(--amber)}
+.term-cursor{
+  display:inline-block;width:8px;height:14px;
+  background:var(--green);vertical-align:middle;
+  animation:blink 1s step-end infinite;
+}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
+
+/* ── Download ─────────────────────────────────────────────── */
+.download{
+  padding:120px 0;
+  text-align:center;
+  position:relative;overflow:hidden;
+}
+.download-glow{
+  position:absolute;
+  bottom:-200px;left:50%;transform:translateX(-50%);
+  width:800px;height:400px;
+  background:radial-gradient(ellipse at center,rgba(251,191,36,0.1) 0%,transparent 70%);
+  pointer-events:none;
+}
+.download h2{margin-bottom:16px}
+.download p{color:var(--text2);font-size:1.05rem;margin-bottom:48px}
+.download-card{
+  display:inline-flex;flex-direction:column;align-items:center;
+  gap:24px;
+  background:var(--bg2);
+  border:1px solid var(--border2);
+  border-radius:24px;
+  padding:48px 64px;
+  position:relative;
+  box-shadow:0 0 0 1px rgba(251,191,36,0.08), 0 40px 80px rgba(0,0,0,0.4);
+}
+.download-card::before{
+  content:'';position:absolute;inset:0;border-radius:24px;
+  background:linear-gradient(135deg,rgba(26,114,240,0.04),transparent 50%,rgba(251,191,36,0.04));
+  pointer-events:none;
+}
+.dl-logo{
+  width:80px;height:80px;border-radius:20px;
+  background:var(--blue);
+  display:flex;align-items:center;justify-content:center;
+  box-shadow:0 0 40px rgba(26,114,240,0.35);
+}
+.dl-logo svg{width:48px;height:48px}
+.dl-name{
+  font-family:var(--display);font-size:2rem;font-weight:800;
+}
+.dl-tagline{color:var(--text2);font-size:0.9rem;margin-top:-16px}
+.dl-version{
+  display:flex;align-items:center;gap:10px;
+  font-size:0.85rem;color:var(--text3);
+}
+#dl-tag{color:var(--amber);font-weight:600}
+#dl-size{color:var(--text3)}
+.dl-btns{display:flex;flex-direction:column;gap:10px;width:100%;min-width:280px}
+.btn-dl{
+  display:flex;align-items:center;justify-content:center;gap:10px;
+  padding:14px 28px;border-radius:var(--radius);
+  font-weight:600;font-size:0.95rem;cursor:pointer;
+  transition:all 0.2s;border:none;
+}
+.btn-dl-gui{background:var(--amber);color:#111;box-shadow:0 4px 20px rgba(251,191,36,0.25)}
+.btn-dl-gui:hover{background:#FCD34D;transform:translateY(-2px);box-shadow:0 8px 30px rgba(251,191,36,0.35)}
+.btn-dl-cli{background:var(--surface);color:var(--text);border:1px solid var(--border2)}
+.btn-dl-cli:hover{background:var(--bg3);transform:translateY(-2px)}
+.dl-note{
+  font-size:0.75rem;color:var(--text3);
+  display:flex;align-items:center;gap:6px;
+}
+.dl-note svg{width:13px;height:13px}
+.dl-alts{
+  display:flex;gap:16px;margin-top:4px;
+  font-size:0.8rem;color:var(--text3);
+}
+.dl-alts a{color:var(--blue2);transition:color 0.2s}
+.dl-alts a:hover{color:var(--text)}
+
+/* ── Footer ──────────────────────────────────────────────── */
+footer{
+  border-top:1px solid var(--border);
+  padding:48px 0 40px;
+  position:relative;z-index:1;
+}
+.footer-inner{
+  display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:24px;
+}
+.footer-brand{
+  display:flex;align-items:center;gap:10px;
+  font-family:var(--display);font-weight:800;font-size:1.1rem;
+}
+.footer-links{display:flex;gap:24px;font-size:0.85rem;color:var(--text3)}
+.footer-links a:hover{color:var(--text2);transition:color 0.2s}
+.footer-copy{font-size:0.78rem;color:var(--text3);margin-top:24px;text-align:center}
+.footer-oss{
+  display:flex;align-items:center;gap:6px;
+  font-size:0.78rem;color:var(--text3);
+}
+.oss-badge{
+  display:inline-flex;align-items:center;gap:5px;
+  padding:3px 10px;border-radius:100px;
+  background:rgba(52,211,153,0.08);
+  border:1px solid rgba(52,211,153,0.2);
+  color:var(--green);font-size:0.72rem;font-weight:600;
+  font-family:var(--display);
+}
+
+/* ── Scroll reveal ───────────────────────────────────────── */
+.reveal{opacity:0;transform:translateY(24px);transition:opacity 0.6s ease,transform 0.6s ease}
+.reveal.visible{opacity:1;transform:translateY(0)}
+.reveal-delay-1{transition-delay:0.1s}
+.reveal-delay-2{transition-delay:0.2s}
+.reveal-delay-3{transition-delay:0.3s}
+
+/* ── Responsive ──────────────────────────────────────────── */
+@media(max-width:900px){
+  .hero-content{grid-template-columns:1fr;gap:48px}
+  .features-grid{grid-template-columns:1fr 1fr}
+  .feature-card.span2{grid-column:span 1}
+  .steps{grid-template-columns:1fr 1fr}
+  .steps::before{display:none}
+  .cats-grid{grid-template-columns:repeat(2,1fr)}
+  .trust-grid{grid-template-columns:1fr}
+  .cli-inner{grid-template-columns:1fr}
+  .stats-grid{grid-template-columns:repeat(2,1fr)}
+  .nav-links{display:none}
+  .shot-card{flex:0 0 calc(100% - 4px)}
+  .shots-prev{left:-16px}
+  .shots-next{right:-16px}
+}
+@media(max-width:560px){
+  .shots-grid{gap:12px}
+  .shot-card,.shot-card.featured{flex-basis:72vw}
+  .features-grid{grid-template-columns:1fr}
+  .cats-grid{grid-template-columns:1fr 1fr}
+  .download-card{padding:32px 24px}
+  h1{font-size:2.6rem}
+}
+</style>
+</head>
+<body>
+
+<!-- ── Navigation ─────────────────────────────────────────── -->
+<nav>
+  <div class="nav-logo">
+    <div class="icon-wrap">
+      <svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect x="3" y="9" width="11" height="9" rx="1.5" fill="rgba(255,255,255,0.9)"/>
+        <path d="M3 9 Q3 7 4.5 7 L8 7 Q9 7 9.5 8L10 9Z" fill="rgba(255,255,255,0.6)"/>
+        <rect x="7" y="4" width="3" height="6" rx="1" fill="#34D399"/>
+        <rect x="10.5" y="5" width="3" height="5" rx="1" fill="#A78BFA"/>
+        <rect x="14" y="6" width="3" height="4" rx="1" fill="#FB7185"/>
+        <polygon points="8.5,11 6.5,13.5 7.8,13.5 5.8,16 9.2,13 7.9,13 10,11" fill="#FBBF24"/>
+      </svg>
+    </div>
+    Sortly
+  </div>
+  <div class="nav-links">
+    <a href="#features">Features</a>
+    <a href="#screenshots">Screenshots</a>
+    <a href="#how">How it works</a>
+    <a href="#categories">Categories</a>
+    <a href="#security">Security</a>
+    <a href="https://github.com/arshsisodiya" target="_blank">GitHub</a>
+  </div>
+  <a href="#download" class="nav-cta">Download Free</a>
+</nav>
+
+<!-- ── Hero ───────────────────────────────────────────────── -->
+<section class="hero">
+  <div class="hero-glow"></div>
+  <div class="container">
+    <div class="hero-content">
+      <div class="hero-left">
+        <div class="hero-eyebrow">
+          <span class="tag"><span class="dot"></span>Free & Open Source</span>
+        </div>
+        <h1 class="hero-title">
+          Chaos in.<br/><em>Order out.</em>
+        </h1>
+        <p class="hero-sub">
+          Sortly watches your Windows folders and automatically sorts every file into the right category — instantly, silently, and without touching anything it shouldn't.
+        </p>
+        <div class="hero-actions">
+          <a href="#download" class="btn-primary" id="hero-dl-btn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Download for Windows
+          </a>
+          <a href="https://github.com/arshsisodiya" target="_blank" class="btn-ghost">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.374 0 0 5.373 0 12c0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23A11.509 11.509 0 0 1 12 5.803c1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576C20.566 21.797 24 17.3 24 12c0-6.627-5.373-12-12-12z"/></svg>
+            View on GitHub
+          </a>
+        </div>
+        <div class="hero-meta">
+          <span><span class="check">✓</span> No install required</span>
+          <span><span class="check">✓</span> No account needed</span>
+          <span><span class="check">✓</span> Windows 10 / 11</span>
+        </div>
+      </div>
+
+      <!-- App Mockup -->
+      <div class="hero-visual">
+        <div class="mockup-wrap">
+          <div class="mockup-bar">
+            <div class="mockup-dot" style="background:#FF5F57"></div>
+            <div class="mockup-dot" style="background:#FFBD2E"></div>
+            <div class="mockup-dot" style="background:#28C840"></div>
+            <span class="mockup-title">Sortly — Downloads</span>
+          </div>
+          <div class="mockup-body">
+            <div class="mockup-path">
+              <span class="path-icon">📁</span>
+              C:\Users\You\Downloads
+            </div>
+            <div class="file-list" id="file-list">
+              <div class="file-item" data-cat="img" data-label="Images">
+                <div class="file-ext" style="background:rgba(52,211,153,0.12);color:#34D399">JPG</div>
+                <span class="file-name">photo_2024.jpg</span>
+                <span class="file-arrow">→</span>
+                <span class="file-cat cat-img">Images</span>
+              </div>
+              <div class="file-item" data-cat="vid" data-label="Videos">
+                <div class="file-ext" style="background:rgba(251,113,133,0.12);color:#FB7185">MP4</div>
+                <span class="file-name">screen_recording.mp4</span>
+                <span class="file-arrow">→</span>
+                <span class="file-cat cat-vid">Videos</span>
+              </div>
+              <div class="file-item" data-cat="doc" data-label="Documents">
+                <div class="file-ext" style="background:rgba(96,207,255,0.12);color:#60CFFF">PDF</div>
+                <span class="file-name">invoice_march.pdf</span>
+                <span class="file-arrow">→</span>
+                <span class="file-cat cat-doc">Documents</span>
+              </div>
+              <div class="file-item" data-cat="arc" data-label="Archives">
+                <div class="file-ext" style="background:rgba(251,191,36,0.12);color:#FBBF24">ZIP</div>
+                <span class="file-name">project_backup.zip</span>
+                <span class="file-arrow">→</span>
+                <span class="file-cat cat-arc">Archives</span>
+              </div>
+              <div class="file-item" data-cat="cod" data-label="Code">
+                <div class="file-ext" style="background:rgba(167,139,250,0.12);color:#A78BFA">PY</div>
+                <span class="file-name">script.py</span>
+                <span class="file-arrow">→</span>
+                <span class="file-cat cat-cod">Code</span>
+              </div>
+            </div>
+            <div class="mockup-status" id="mockup-status" style="opacity:0">
+              <div class="status-dot"></div>
+              5 files organized — Monitoring active
+            </div>
+          </div>
+        </div>
+        <div class="download-info">
+          Latest release: <span id="dl-version">fetching…</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── Stats bar ──────────────────────────────────────────── -->
+<div class="stats-bar">
+  <div class="container">
+    <div class="stats-grid">
+      <div class="stat">
+        <div class="stat-number amber">100+</div>
+        <div class="stat-label">File extensions recognized</div>
+      </div>
+      <div class="stat">
+        <div class="stat-number blue">9</div>
+        <div class="stat-label">Smart categories</div>
+      </div>
+      <div class="stat">
+        <div class="stat-number green">0</div>
+        <div class="stat-label">Data sent to any server</div>
+      </div>
+      <div class="stat">
+        <div class="stat-number" style="color:var(--purple)">MIT</div>
+        <div class="stat-label">Open source license</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Screenshots ─────────────────────────────────────────── -->
+<section class="screenshots" id="screenshots">
+  <div class="container">
+    <div class="section-head reveal">
+      <span class="tag">Product UI</span>
+      <h2>See Sortly in action</h2>
+      <p>A quick look at the main screens: dashboard, monitoring, custom rules, activity history, and notifications.</p>
+    </div>
+
+    <div class="shots-carousel-wrap">
+
+      <!-- Prev button -->
+      <button class="shots-nav shots-prev disabled" id="shots-prev" aria-label="Previous screenshot">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+      </button>
+
+      <!-- Clipping viewport -->
+      <div class="shots-viewport">
+        <div class="shots-grid" id="shots-grid">
+
+          <figure class="shot-card">
+            <img class="shot-image" src="assets/screenshots/dashbaord.png" alt="Sortly dashboard showing file organization overview" data-caption="Dashboard — the main control panel"/>
+            <figcaption class="shot-label"><span class="pill">Main View</span>Dashboard</figcaption>
+          </figure>
+
+          <figure class="shot-card">
+            <img class="shot-image" src="assets/screenshots/monitoring.png" alt="Sortly monitoring screen showing real-time folder watch" data-caption="Monitoring — live folder watch mode"/>
+            <figcaption class="shot-label"><span class="pill">Live</span>Monitoring</figcaption>
+          </figure>
+
+          <figure class="shot-card">
+            <img class="shot-image" src="assets/screenshots/custom_rules.png" alt="Sortly custom rules editor for filename pattern mapping" data-caption="Custom Rules — map filename patterns to categories"/>
+            <figcaption class="shot-label"><span class="pill">Control</span>Custom Rules</figcaption>
+          </figure>
+
+          <figure class="shot-card">
+            <img class="shot-image" src="assets/screenshots/activity_log.png" alt="Sortly activity log with move history and timestamps" data-caption="Activity Log — full audit trail of every move"/>
+            <figcaption class="shot-label"><span class="pill">Audit</span>Activity Log</figcaption>
+          </figure>
+
+          <figure class="shot-card">
+            <img class="shot-image" src="assets/screenshots/notification.png" alt="Sortly notification popup after organization completes" data-caption="Notifications — instant feedback when sorting completes"/>
+            <figcaption class="shot-label"><span class="pill">Alerts</span>Notifications</figcaption>
+          </figure>
+
+        </div>
+      </div>
+
+      <!-- Next button -->
+      <button class="shots-nav shots-next" id="shots-next" aria-label="Next screenshot">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+      </button>
+
+      <!-- Dot indicators -->
+      <div class="shots-dots" id="shots-dots"></div>
+
+    </div>
+    <p class="shots-note">Click any image to enlarge.</p>
+  </div>
+</section>
+
+<div class="shot-modal" id="shot-modal" aria-hidden="true" role="dialog" aria-label="Screenshot preview">
+  <div class="shot-modal-content">
+    <button class="shot-modal-close" id="shot-modal-close" aria-label="Close preview">✕</button>
+    <img id="shot-modal-image" src="" alt=""/>
+    <div class="shot-modal-caption" id="shot-modal-caption"></div>
+  </div>
+</div>
+
+<!-- ── Features ───────────────────────────────────────────── -->
+<section class="features" id="features">
+  <div class="container">
+    <div class="section-head reveal">
+      <span class="tag">Features</span>
+      <h2>Everything your folders need</h2>
+      <p>Built for people who want zero effort and maximum order.</p>
+    </div>
+
+    <div class="features-grid">
+      <div class="feature-card reveal">
+        <div class="feat-icon blue">⚡</div>
+        <h3>Instant auto-sort</h3>
+        <p>Drop a file, watch it disappear into the right folder. Sortly categorizes by extension and smart pattern detection in milliseconds.</p>
+      </div>
+      <div class="feature-card reveal reveal-delay-1">
+        <div class="feat-icon green">👁</div>
+        <h3>Real-time monitoring</h3>
+        <p>Set it once. Sortly watches your chosen folders continuously and organizes every new file the moment it arrives — no manual trigger needed.</p>
+      </div>
+      <div class="feature-card reveal reveal-delay-2">
+        <div class="feat-icon amber">🔍</div>
+        <h3>Preview before moving</h3>
+        <p>Confirmation mode shows you exactly what will move and where before touching a single file. Full control, zero surprises.</p>
+        <div class="feat-tags">
+          <span class="feat-tag" style="background:var(--amber-dim);color:var(--amber)">Preview</span>
+          <span class="feat-tag" style="background:var(--blue-dim);color:var(--blue2)">Auto</span>
+        </div>
+      </div>
+
+      <div class="feature-card span2 reveal">
+        <div class="feat-icon purple">↩</div>
+        <h3>Full undo — always</h3>
+        <p>Made a mistake? One click reverts the last organization session completely. Sortly keeps a full session history so you're never locked in. Up to 50 sessions remembered.</p>
+        <div class="feat-tags">
+          <span class="feat-tag" style="background:rgba(167,139,250,0.12);color:var(--purple)">50 sessions</span>
+          <span class="feat-tag" style="background:rgba(52,211,153,0.12);color:var(--green)">Safe by default</span>
+        </div>
+      </div>
+      <div class="feature-card reveal reveal-delay-1">
+        <div class="feat-icon red">⚙️</div>
+        <h3>Custom rules</h3>
+        <p>Match by filename pattern. Send anything with "invoice" to Documents, or "screenshot" to Images — your logic, your structure.</p>
+      </div>
+
+      <div class="feature-card reveal">
+        <div class="feat-icon sky">💻</div>
+        <h3>Full CLI access</h3>
+        <p>Power users get a complete command-line interface. Scriptable, automatable, pipe-friendly.</p>
+        <div class="feat-tags">
+          <span class="feat-tag" style="background:rgba(56,189,248,0.12);color:var(--sky)">--dry-run</span>
+          <span class="feat-tag" style="background:rgba(56,189,248,0.12);color:var(--sky)">--auto</span>
+        </div>
+      </div>
+      <div class="feature-card reveal reveal-delay-1">
+        <div class="feat-icon amber">📝</div>
+        <h3>Activity logging</h3>
+        <p>Every move is logged with timestamp, source, and destination. Your own audit trail, stored locally.</p>
+      </div>
+      <div class="feature-card reveal reveal-delay-2">
+        <div class="feat-icon green">📂</div>
+        <h3>Auto folder creation</h3>
+        <p>Missing a category folder? Sortly creates it automatically. Zero friction, zero setup.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── How it works ───────────────────────────────────────── -->
+<section class="how" id="how">
+  <div class="container">
+    <div class="section-head reveal">
+      <span class="tag">How it works</span>
+      <h2>Four steps to a clean machine</h2>
+    </div>
+    <div class="steps">
+      <div class="step reveal">
+        <div class="step-num">1</div>
+        <h3>Pick a folder</h3>
+        <p>Select any folder — Downloads, Desktop, Documents, or a custom path. Multiple folders supported.</p>
+      </div>
+      <div class="step reveal reveal-delay-1">
+        <div class="step-num">2</div>
+        <h3>Preview the plan</h3>
+        <p>Sortly scans every file and shows you exactly where each one will go, grouped by category.</p>
+      </div>
+      <div class="step reveal reveal-delay-2">
+        <div class="step-num">3</div>
+        <h3>Confirm or auto</h3>
+        <p>Approve the plan and execute, or switch to Auto mode to let Sortly organize instantly without asking.</p>
+      </div>
+      <div class="step reveal reveal-delay-3">
+        <div class="step-num">4</div>
+        <h3>Done — forever</h3>
+        <p>Enable real-time monitoring and Sortly keeps working silently in the background. Set it once.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── Categories ─────────────────────────────────────────── -->
+<section class="categories" id="categories">
+  <div class="container">
+    <div class="section-head reveal">
+      <span class="tag">Categories</span>
+      <h2>9 smart categories</h2>
+      <p>Over 100 file extensions recognized out of the box. Unknown files go to Others — nothing gets lost.</p>
+    </div>
+    <div class="cats-grid">
+      <div class="cat-card reveal">
+        <div class="cat-emoji">🖼️</div>
+        <h3>Images</h3>
+        <p>jpg, png, gif, svg, webp, heic, psd, raw, tiff…</p>
+        <span class="cat-count">20+ extensions</span>
+      </div>
+      <div class="cat-card reveal reveal-delay-1">
+        <div class="cat-emoji">🎬</div>
+        <h3>Videos</h3>
+        <p>mp4, mkv, avi, mov, wmv, webm, flv…</p>
+        <span class="cat-count">17 extensions</span>
+      </div>
+      <div class="cat-card reveal reveal-delay-2">
+        <div class="cat-emoji">🎵</div>
+        <h3>Audio</h3>
+        <p>mp3, wav, flac, aac, ogg, m4a, opus…</p>
+        <span class="cat-count">14 extensions</span>
+      </div>
+      <div class="cat-card reveal reveal-delay-3">
+        <div class="cat-emoji">📄</div>
+        <h3>Documents</h3>
+        <p>pdf, docx, xlsx, pptx, txt, csv, md, epub…</p>
+        <span class="cat-count">19 extensions</span>
+      </div>
+      <div class="cat-card reveal">
+        <div class="cat-emoji">📦</div>
+        <h3>Archives</h3>
+        <p>zip, rar, 7z, tar, gz, iso, dmg…</p>
+        <span class="cat-count">19 extensions</span>
+      </div>
+      <div class="cat-card reveal reveal-delay-1">
+        <div class="cat-emoji">💻</div>
+        <h3>Code</h3>
+        <p>py, js, ts, html, css, java, go, rs, php…</p>
+        <span class="cat-count">40+ extensions</span>
+      </div>
+      <div class="cat-card reveal reveal-delay-2">
+        <div class="cat-emoji">⚙️</div>
+        <h3>Executables</h3>
+        <p>exe, msi, apk, jar, bin, appimage…</p>
+        <span class="cat-count">9 extensions</span>
+      </div>
+      <div class="cat-card reveal reveal-delay-3">
+        <div class="cat-emoji">🔤</div>
+        <h3>Fonts</h3>
+        <p>ttf, otf, woff, woff2, eot, fon</p>
+        <span class="cat-count">6 extensions</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── Open source & Security ─────────────────────────────── -->
+<section class="trust" id="security">
+  <div class="container">
+    <div class="trust-grid">
+      <div class="trust-text reveal">
+        <span class="tag"><span class="oss-badge">MIT</span> Open Source</span>
+        <h2 style="margin-top:24px">Built in the open.<br/>Trusted by design.</h2>
+        <p>Sortly is fully open source under the MIT license. Every line of code is public, auditable, and forkable. No hidden network calls. No telemetry. No surprises.</p>
+        <p>Your files never leave your machine. Sortly works entirely locally — it moves files between folders on your own drive and does nothing else.</p>
+        <div class="trust-points">
+          <div class="trust-point">
+            <div class="trust-point-icon" style="background:rgba(52,211,153,0.12)">🔒</div>
+            <div>
+              <h4>100% offline</h4>
+              <p>No internet connection required. No data ever sent anywhere. What's on your drive stays on your drive.</p>
+            </div>
+          </div>
+          <div class="trust-point">
+            <div class="trust-point-icon" style="background:rgba(26,114,240,0.12)">📖</div>
+            <div>
+              <h4>Fully auditable</h4>
+              <p>Read every line on GitHub. Fork it, modify it, compile it yourself. MIT license — do whatever you want.</p>
+            </div>
+          </div>
+          <div class="trust-point">
+            <div class="trust-point-icon" style="background:rgba(251,191,36,0.12)">↩</div>
+            <div>
+              <h4>Non-destructive by default</h4>
+              <p>Files are moved, never deleted. Undo is always one click away. Sortly never overwrites — conflicts are renamed safely.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Code preview -->
+      <div class="code-box reveal reveal-delay-1">
+        <div class="code-header">
+          <div class="code-dot" style="background:#FF5F57"></div>
+          <div class="code-dot" style="background:#FFBD2E"></div>
+          <div class="code-dot" style="background:#28C840"></div>
+          <span class="code-filename">organizer_core.py</span>
+        </div>
+        <div class="code-body">
+<span class="cm"># Sortly — open source, MIT license</span><br/>
+<span class="cm"># github.com/arshsisodiya</span><br/>
+<br/>
+<span class="kw">def</span> <span class="fn">categorize</span>(file_path: str) -> str:<br/>
+&nbsp;&nbsp;<span class="cm">"""Map file → category by extension."""</span><br/>
+&nbsp;&nbsp;ext = Path(file_path).suffix.lower()<br/>
+<br/>
+&nbsp;&nbsp;<span class="kw">for</span> rule <span class="kw">in</span> self.custom_rules:<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="kw">if</span> rule[<span class="str">"pattern"</span>] <span class="kw">in</span> name:<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="kw">return</span> rule[<span class="str">"category"</span>]<br/>
+<br/>
+&nbsp;&nbsp;<span class="kw">return</span> self._ext_map.get(ext, <span class="str">"Others"</span>)<br/>
+<br/>
+<span class="kw">def</span> <span class="fn">execute_plan</span>(plan, folder):<br/>
+&nbsp;&nbsp;<span class="cm"># Move files — never delete</span><br/>
+&nbsp;&nbsp;<span class="kw">for</span> src, dst, cat <span class="kw">in</span> plan.moves:<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;shutil.<span class="fn">move</span>(src, dst) <span class="cm"># safe move</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;history.<span class="fn">push</span>(src, dst) <span class="cm"># always undoable</span><br/>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── CLI section ────────────────────────────────────────── -->
+<section class="cli">
+  <div class="container">
+    <div class="cli-inner">
+      <div class="reveal">
+        <span class="tag">Command line</span>
+        <h2 style="margin-top:20px">Also a great CLI tool</h2>
+        <p style="color:var(--text2);margin:16px 0 24px;line-height:1.7">
+          Everything in the GUI is also available from the terminal. Script it, schedule it, pipe it — Sortly speaks shell.
+        </p>
+        <div style="display:flex;flex-direction:column;gap:12px">
+          <div style="display:flex;align-items:center;gap:12px;font-size:0.88rem;color:var(--text2)">
+            <span style="color:var(--green);font-size:1rem">→</span>
+            <code style="background:var(--bg3);padding:3px 10px;border-radius:6px;font-size:0.78rem;color:var(--sky)">--dry-run</code>
+            Preview without moving anything
+          </div>
+          <div style="display:flex;align-items:center;gap:12px;font-size:0.88rem;color:var(--text2)">
+            <span style="color:var(--green);font-size:1rem">→</span>
+            <code style="background:var(--bg3);padding:3px 10px;border-radius:6px;font-size:0.78rem;color:var(--sky)">--auto</code>
+            Organize without prompts
+          </div>
+          <div style="display:flex;align-items:center;gap:12px;font-size:0.88rem;color:var(--text2)">
+            <span style="color:var(--green);font-size:1rem">→</span>
+            <code style="background:var(--bg3);padding:3px 10px;border-radius:6px;font-size:0.78rem;color:var(--sky)">monitor</code>
+            Watch folders live in terminal
+          </div>
+          <div style="display:flex;align-items:center;gap:12px;font-size:0.88rem;color:var(--text2)">
+            <span style="color:var(--green);font-size:1rem">→</span>
+            <code style="background:var(--bg3);padding:3px 10px;border-radius:6px;font-size:0.78rem;color:var(--sky)">rules add</code>
+            Add custom pattern rules
+          </div>
+        </div>
+      </div>
+
+      <div class="terminal reveal reveal-delay-1">
+        <div class="terminal-bar">
+          <div class="term-dot" style="background:#FF5F57"></div>
+          <div class="term-dot" style="background:#FFBD2E"></div>
+          <div class="term-dot" style="background:#28C840"></div>
+        </div>
+        <div class="terminal-body">
+          <div><span class="term-prompt">❯</span> <span class="term-cmd">sortly organize C:\Downloads --dry-run</span></div>
+          <div class="term-out"></div>
+          <div><span class="term-info">  ℹ  Scanning files…</span></div>
+          <div><span class="term-amber">  📦  Archives    ██████  6 files</span></div>
+          <div><span class="term-info">  🖼️  Images      ████    4 files</span></div>
+          <div style="color:var(--purple)">  💻  Code        ██      2 files</div>
+          <div><span class="term-out">  ─────────────────────────────</span></div>
+          <div><span class="term-amber">  ⚠  Dry run — no files moved</span></div>
+          <div class="term-out"></div>
+          <div><span class="term-prompt">❯</span> <span class="term-cmd">sortly organize C:\Downloads --auto</span></div>
+          <div><span class="term-success">  ✓  Organized 12 files successfully!</span></div>
+          <div><span class="term-out">     Use 'undo' to revert</span></div>
+          <div class="term-out"></div>
+          <div><span class="term-prompt">❯</span> <span class="term-cursor"></span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── Download ────────────────────────────────────────────── -->
+<section class="download" id="download">
+  <div class="download-glow"></div>
+  <div class="container" style="position:relative;z-index:1">
+    <h2 class="reveal">Get Sortly</h2>
+    <p class="reveal reveal-delay-1">Free forever. No account. No subscription. Just download and run.</p>
+
+    <div style="display:flex;justify-content:center">
+      <div class="download-card reveal reveal-delay-2">
+        <div class="dl-logo">
+          <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect x="10" y="22" width="28" height="18" rx="3" fill="rgba(255,255,255,0.9)"/>
+            <path d="M10 22 Q10 16 13 16 L21 16 Q24 16 25.5 18L27 22Z" fill="rgba(255,255,255,0.55)"/>
+            <rect x="25" y="8" width="7" height="16" rx="2" fill="#38BDF8"/>
+            <rect x="17" y="10.5" width="7" height="13.5" rx="2" fill="#A78BFA"/>
+            <rect x="9" y="13" width="7" height="11" rx="2" fill="#34D399"/>
+            <polygon points="23,26 17,33 21,33 15,42 28,33 24,33 30,26" fill="#FBBF24"/>
+          </svg>
+        </div>
+        <div class="dl-name">Sortly</div>
+        <div class="dl-tagline">Chaos in. Order out.</div>
+
+        <div class="dl-version">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          Latest: <span id="dl-tag">fetching…</span>
+          &nbsp;·&nbsp;
+          <span id="dl-size">–</span>
+        </div>
+
+        <div class="dl-btns">
+          <a id="btn-setup" href="https://github.com/arshsisodiya/sortly/releases/latest" target="_blank" class="btn-dl btn-dl-gui">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 9h6M9 12h6M9 15h4"/></svg>
+            Download Setup (.exe)
+          </a>
+          <a id="btn-portable" href="https://github.com/arshsisodiya/sortly/releases/latest" target="_blank" class="btn-dl btn-dl-cli">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+            Download Portable (.exe)
+          </a>
+        </div>
+
+        <div class="dl-note">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 0C5.374 0 0 5.373 0 12c0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23A11.509 11.509 0 0 1 12 5.803c1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576C20.566 21.797 24 17.3 24 12c0-6.627-5.373-12-12-12z" fill="currentColor" stroke="none"/></svg>
+          Open source · MIT License · Always free
+        </div>
+
+        <div class="dl-alts">
+          <a id="link-releases" href="https://github.com/arshsisodiya" target="_blank">All releases →</a>
+          <a href="https://github.com/arshsisodiya" target="_blank">Source code →</a>
+          <a href="https://github.com/arshsisodiya" target="_blank">Report issue →</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── Footer ──────────────────────────────────────────────── -->
+<footer>
+  <div class="container">
+    <div class="footer-inner">
+      <div class="footer-brand">
+        <div style="width:28px;height:28px;background:var(--blue);border-radius:7px;display:flex;align-items:center;justify-content:center">
+          <svg width="18" height="18" viewBox="0 0 20 20" fill="none">
+            <rect x="3" y="9" width="11" height="9" rx="1.5" fill="rgba(255,255,255,0.9)"/>
+            <path d="M3 9 Q3 7 4.5 7 L8 7 Q9 7 9.5 8L10 9Z" fill="rgba(255,255,255,0.6)"/>
+            <rect x="7" y="4" width="3" height="6" rx="1" fill="#34D399"/>
+            <rect x="10.5" y="5" width="3" height="5" rx="1" fill="#A78BFA"/>
+            <rect x="14" y="6" width="3" height="4" rx="1" fill="#FB7185"/>
+            <polygon points="8.5,11 6.5,13.5 7.8,13.5 5.8,16 9.2,13 7.9,13 10,11" fill="#FBBF24"/>
+          </svg>
+        </div>
+        Sortly
+      </div>
+
+      <div class="footer-links">
+        <a href="#features">Features</a>
+        <a href="#screenshots">Screenshots</a>
+        <a href="#how">How it works</a>
+        <a href="#security">Security</a>
+        <a href="https://github.com/arshsisodiya" target="_blank">GitHub</a>
+        <a href="https://github.com/arshsisodiya" target="_blank">Issues</a>
+      </div>
+
+      <div class="footer-oss">
+        <span class="oss-badge">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.374 0 0 5.373 0 12c0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23A11.509 11.509 0 0 1 12 5.803c1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576C20.566 21.797 24 17.3 24 12c0-6.627-5.373-12-12-12z"/></svg>
+          MIT Open Source
+        </span>
+      </div>
+    </div>
+    <div class="footer-copy">
+      Built by <a href="https://github.com/arshsisodiya" target="_blank" style="color:var(--blue2)">Arsh Sisodiya</a> · Free forever · No tracking · No telemetry
+    </div>
+  </div>
+</footer>
+
+<!-- ── Scripts ────────────────────────────────────────────── -->
+<script>
+// ── Fetch latest GitHub release ─────────────────────────────────────────────
+async function fetchRelease() {
+  const OWNER = 'arshsisodiya';
+  const REPO  = 'sortly';
+
+  try {
+    const res  = await fetch(`https://api.github.com/repos/${OWNER}/${REPO}/releases/latest`);
+    if (!res.ok) throw new Error('no release');
+    const data = await res.json();
+
+    const tag     = data.tag_name || 'latest';
+    const assets  = data.assets   || [];
+
+    // Find setup and portable GUI assets from release files.
+    const setupAsset = assets.find(a => a.name && /^SortlySetup-.*\.exe$/i.test(a.name));
+    const portableAsset = assets.find(a => a.name && /^SortlyPortable\.exe$/i.test(a.name));
+    const anyAsset = assets[0];
+
+    const fmtSize = (bytes) => bytes ? `${(bytes/1024/1024).toFixed(1)} MB` : '';
+
+    // Update version labels
+    ['dl-version','dl-tag'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.textContent = tag;
+    });
+
+    // Update size
+    const sizeEl = document.getElementById('dl-size');
+    if (sizeEl && (setupAsset || anyAsset)) {
+      const setupSize = fmtSize((setupAsset || anyAsset).size);
+      sizeEl.textContent = setupSize ? `Setup: ${setupSize}` : '';
+    }
+
+    // Update button hrefs
+    const releasesUrl = `https://github.com/${OWNER}/${REPO}/releases/latest`;
+    const setupUrl  = setupAsset ? setupAsset.browser_download_url : releasesUrl;
+    const portableUrl  = portableAsset ? portableAsset.browser_download_url : releasesUrl;
+
+    const btnSetup = document.getElementById('btn-setup');
+    const btnPortable = document.getElementById('btn-portable');
+    const heroDl = document.getElementById('hero-dl-btn');
+    const dlLink = document.getElementById('link-releases');
+
+    if (btnSetup) btnSetup.href = setupUrl;
+    if (btnPortable) btnPortable.href = portableUrl;
+    if (heroDl) heroDl.href = setupUrl;
+    if (dlLink) dlLink.href = `https://github.com/${OWNER}/${REPO}/releases`;
+
+  } catch (e) {
+    // Graceful fallback — link to releases page
+    ['dl-version','dl-tag'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.textContent = 'latest';
+    });
+    const sizeEl = document.getElementById('dl-size');
+    if (sizeEl) sizeEl.textContent = '';
+  }
+}
+fetchRelease();
+
+// ── Screenshots carousel ────────────────────────────────────────────────────
+function initCarousel() {
+  const grid    = document.getElementById('shots-grid');
+  const prevBtn = document.getElementById('shots-prev');
+  const nextBtn = document.getElementById('shots-next');
+  const dotsWrap= document.getElementById('shots-dots');
+
+  if (!grid || !prevBtn || !nextBtn) return;
+
+  const cards      = Array.from(grid.querySelectorAll('.shot-card'));
+  const PER_VIEW   = 2;                         // show 2 cards at a time
+  const total      = cards.length;
+  const maxStep    = total - PER_VIEW;          // 0-indexed last valid step
+  let   current    = 0;
+
+  // Build dots
+  const numDots = maxStep + 1;
+  const dots = [];
+  for (let i = 0; i <= maxStep; i++) {
+    const d = document.createElement('button');
+    d.className = 'shots-dot' + (i === 0 ? ' active' : '');
+    d.setAttribute('aria-label', `Go to slide ${i + 1}`);
+    d.addEventListener('click', () => goTo(i));
+    dotsWrap.appendChild(d);
+    dots.push(d);
+  }
+
+  function getOffset() {
+    // card width + gap (20px) expressed as percentage of track width
+    const cardW = cards[0].getBoundingClientRect().width;
+    const gap   = 20;
+    return current * (cardW + gap);
+  }
+
+  function render() {
+    grid.style.transform = `translateX(-${getOffset()}px)`;
+
+    // Button states
+    prevBtn.classList.toggle('disabled', current === 0);
+    nextBtn.classList.toggle('disabled', current >= maxStep);
+
+    // Dot states
+    dots.forEach((d, i) => d.classList.toggle('active', i === current));
+  }
+
+  function goTo(idx) {
+    current = Math.max(0, Math.min(idx, maxStep));
+    render();
+  }
+
+  prevBtn.addEventListener('click', () => goTo(current - 1));
+  nextBtn.addEventListener('click', () => goTo(current + 1));
+
+  // Keyboard support
+  document.addEventListener('keydown', (e) => {
+    const ss = document.getElementById('screenshots');
+    if (!ss) return;
+    const rect = ss.getBoundingClientRect();
+    const inView = rect.top < window.innerHeight && rect.bottom > 0;
+    if (!inView) return;
+    if (e.key === 'ArrowLeft')  goTo(current - 1);
+    if (e.key === 'ArrowRight') goTo(current + 1);
+  });
+
+  // Recalculate on resize (card widths change)
+  window.addEventListener('resize', () => render(), { passive: true });
+
+  render();
+}
+initCarousel();
+
+// ── Screenshot lightbox ─────────────────────────────────────────────────────
+function initScreenshotLightbox() {
+  const modal = document.getElementById('shot-modal');
+  const modalImg = document.getElementById('shot-modal-image');
+  const modalCaption = document.getElementById('shot-modal-caption');
+  const closeBtn = document.getElementById('shot-modal-close');
+  const images = document.querySelectorAll('.shot-image');
+
+  if (!modal || !modalImg || !modalCaption || !closeBtn || images.length === 0) return;
+
+  const closeModal = () => {
+    modal.classList.remove('open');
+    modal.setAttribute('aria-hidden', 'true');
+    document.body.classList.remove('modal-open');
+    modalImg.src = '';
+    modalImg.alt = '';
+    modalCaption.textContent = '';
+  };
+
+  images.forEach((img) => {
+    img.addEventListener('click', () => {
+      modalImg.src = img.src;
+      modalImg.alt = img.alt || 'Screenshot preview';
+      modalCaption.textContent = img.dataset.caption || '';
+      modal.classList.add('open');
+      modal.setAttribute('aria-hidden', 'false');
+      document.body.classList.add('modal-open');
+    });
+  });
+
+  closeBtn.addEventListener('click', closeModal);
+  modal.addEventListener('click', (event) => {
+    if (event.target === modal) closeModal();
+  });
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && modal.classList.contains('open')) closeModal();
+  });
+}
+initScreenshotLightbox();
+
+// ── Mockup animation ─────────────────────────────────────────────────────────
+function runMockupAnim() {
+  const items  = document.querySelectorAll('.file-item');
+  const status = document.getElementById('mockup-status');
+  let i = 0;
+
+  function next() {
+    if (i >= items.length) {
+      setTimeout(() => { if (status) status.style.opacity = '1'; }, 200);
+      setTimeout(() => {
+        // reset and loop
+        items.forEach(el => { el.classList.remove('moving','done'); });
+        if (status) status.style.opacity = '0';
+        i = 0;
+        setTimeout(next, 1200);
+      }, 3000);
+      return;
+    }
+    const item = items[i];
+    item.classList.add('moving');
+    setTimeout(() => { item.classList.add('done'); }, 500);
+    i++;
+    setTimeout(next, 500);
+  }
+  setTimeout(next, 1500);
+}
+runMockupAnim();
+
+// ── Scroll reveal ─────────────────────────────────────────────────────────────
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      e.target.classList.add('visible');
+      observer.unobserve(e.target);
+    }
+  });
+}, { threshold: 0.1, rootMargin: '0px 0px -40px 0px' });
+
+document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+
+// ── Smooth nav active state ───────────────────────────────────────────────────
+const sections = document.querySelectorAll('section[id]');
+const navLinks = document.querySelectorAll('.nav-links a');
+const sectionObserver = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      navLinks.forEach(a => {
+        a.style.color = a.getAttribute('href') === '#' + e.target.id
+          ? 'var(--text)'
+          : '';
+      });
+    }
+  });
+}, { threshold: 0.4 });
+sections.forEach(s => sectionObserver.observe(s));
+</script>
+</body>
+</html>
