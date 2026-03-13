@@ -7,6 +7,11 @@ import os
 from pathlib import Path
 from typing import Optional
 
+try:
+    import winreg
+except Exception:
+    winreg = None
+
 from PySide6.QtCore import QObject, Qt, Signal, QTimer
 from PySide6.QtGui import QAction, QCloseEvent, QIcon
 from PySide6.QtWidgets import (
@@ -103,6 +108,61 @@ class FileOrganizerQtApp(QMainWindow):
         self._set_theme(self._theme_mode, persist=False)
         self._update_schedule_timer()
         self._refresh_history_label()
+        self._sync_autostart_with_monitoring(notify=False)
+        self._restore_monitoring_on_launch()
+
+    def _autostart_value_name(self) -> str:
+        return "SortlyFileOrganizer"
+
+    def _autostart_command(self) -> str:
+        if getattr(sys, "frozen", False):
+            return f'"{Path(sys.executable)}"'
+
+        script_path = Path(__file__).resolve().parents[1] / "sortly_gui_qt.py"
+        python_exe = Path(sys.executable)
+        pythonw_exe = python_exe.with_name("pythonw.exe")
+        launcher = pythonw_exe if pythonw_exe.exists() else python_exe
+        return f'"{launcher}" "{script_path}"'
+
+    def _set_windows_autostart(self, enable: bool) -> tuple[bool, str]:
+        if os.name != "nt" or winreg is None:
+            return False, "Autostart management is only available on Windows."
+
+        run_key = r"Software\Microsoft\Windows\CurrentVersion\Run"
+        value_name = self._autostart_value_name()
+
+        try:
+            with winreg.OpenKey(winreg.HKEY_CURRENT_USER, run_key, 0, winreg.KEY_SET_VALUE) as key:
+                if enable:
+                    winreg.SetValueEx(key, value_name, 0, winreg.REG_SZ, self._autostart_command())
+                    return True, "Autostart enabled for monitoring sessions."
+                try:
+                    winreg.DeleteValue(key, value_name)
+                except FileNotFoundError:
+                    pass
+                return True, "Autostart disabled."
+        except OSError as exc:
+            return False, f"Failed to update autostart: {exc}"
+
+    def _sync_autostart_with_monitoring(self, notify: bool = True):
+        enabled = bool(self.settings.get("monitor_enabled", False))
+        ok, message = self._set_windows_autostart(enabled)
+        if notify:
+            self._log(message, "info" if ok else "warning")
+
+    def _restore_monitoring_on_launch(self):
+        if not bool(self.settings.get("monitor_enabled", False)):
+            return
+
+        folders = [self.monitor_folders.item(i).text() for i in range(self.monitor_folders.count())]
+        folders = [f for f in folders if os.path.isdir(f)]
+        if not folders:
+            self.settings.set("monitor_enabled", False)
+            self._sync_autostart_with_monitoring(notify=False)
+            self._log("Monitoring was enabled, but no valid monitored folders were found.", "warning")
+            return
+
+        self._start_monitoring(folders, startup_restore=True)
 
     def _apply_windows_base_style(self):
         app = QApplication.instance()
@@ -1521,10 +1581,7 @@ class FileOrganizerQtApp(QMainWindow):
 
     def _toggle_monitor(self):
         if self.organizer.is_monitoring:
-            self.organizer.stop_monitoring()
-            self.monitor_btn.setText("Start Monitoring")
-            self._log("Monitoring stopped")
-            self.statusBar().showMessage("Monitoring stopped")
+            self._stop_monitoring_by_user()
             return
 
         folders = [self.monitor_folders.item(i).text() for i in range(self.monitor_folders.count())]
@@ -1533,14 +1590,33 @@ class FileOrganizerQtApp(QMainWindow):
             self._show_warning("No folders", "Add at least one valid folder to monitor.")
             return
 
+        self._start_monitoring(folders, startup_restore=False)
+
+    def _start_monitoring(self, folders: list[str], startup_restore: bool = False):
+        if not folders:
+            return
+
         def callback(src: str, dst: str, category: str):
             self._monitor_bridge.file_organized.emit(src, dst, category)
 
         self.organizer.start_monitoring(folders, callback=callback)
         self.monitor_btn.setText("Stop Monitoring")
         self._save_monitor_folders()
-        self._log(f"Monitoring started for {len(folders)} folder(s)", "success")
+        self.settings.set("monitor_enabled", True)
+        self._sync_autostart_with_monitoring(notify=not startup_restore)
+        if startup_restore:
+            self._log(f"Monitoring restored on launch for {len(folders)} folder(s)", "success")
+        else:
+            self._log(f"Monitoring started for {len(folders)} folder(s)", "success")
         self.statusBar().showMessage("Monitoring active")
+
+    def _stop_monitoring_by_user(self):
+        self.organizer.stop_monitoring()
+        self.monitor_btn.setText("Start Monitoring")
+        self.settings.set("monitor_enabled", False)
+        self._sync_autostart_with_monitoring(notify=True)
+        self._log("Monitoring stopped")
+        self.statusBar().showMessage("Monitoring stopped")
 
     def _on_monitor_file_organized(self, src: str, dst: str, category: str):
         name = Path(src).name
