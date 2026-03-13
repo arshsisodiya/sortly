@@ -778,6 +778,10 @@ class FileOrganizerQtApp(QMainWindow):
         history_help.setObjectName("Muted")
         top.addWidget(history_help, 1)
 
+        preview_undo_btn = QPushButton("Preview Undo")
+        preview_undo_btn.clicked.connect(self._preview_undo)
+        top.addWidget(preview_undo_btn)
+
         refresh_btn = QPushButton("Refresh")
         refresh_btn.clicked.connect(self._refresh_history_tab)
         top.addWidget(refresh_btn)
@@ -966,6 +970,31 @@ class FileOrganizerQtApp(QMainWindow):
             self._log(message, "warning")
             self._show_warning("Undo", message)
         self._refresh_history_label()
+
+    def _preview_undo(self):
+        session = self.organizer.history.peek_last_session()
+        if not session:
+            self._show_info("Undo Preview", "No history available to undo.")
+            return
+
+        moves = session.get("moves", [])
+        if not moves:
+            self._show_info("Undo Preview", "The last session has no recorded moves.")
+            return
+
+        preview_lines = []
+        for move in moves[:25]:
+            src_name = Path(move.get("source", "")).name
+            dst_name = Path(move.get("destination", "")).name
+            preview_lines.append(f"{dst_name} -> {src_name}")
+        if len(moves) > 25:
+            preview_lines.append(f"... and {len(moves) - 25} more file(s)")
+
+        text = (
+            f"Undo will restore {len(moves)} file(s) from the last session.\n\n"
+            + "\n".join(preview_lines)
+        )
+        self._show_info("Undo Preview", text)
 
     def _add_rule(self):
         pattern = self.rule_pattern.text().strip()
