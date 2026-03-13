@@ -132,7 +132,8 @@ class OrganizationPlan:
         self.new_dirs: List[str] = []
 
     def add_move(self, source: str, destination: str, category: str,
-                 confidence: int = 0, reasons: Optional[List[str]] = None):
+                 confidence: int = 0, reasons: Optional[List[str]] = None,
+                 conflict_policy: str = "rename"):
         self.moves.append((source, destination, category))
         self.move_details.append({
             "source": source,
@@ -140,6 +141,7 @@ class OrganizationPlan:
             "category": category,
             "confidence": int(confidence),
             "reasons": list(reasons or []),
+            "conflict_policy": conflict_policy,
         })
 
     def add_skip(self, path: str, reason: str):
@@ -172,6 +174,7 @@ class Settings:
         "monitored_folders": [],
         "custom_rules": [],          # [{pattern, category}]
         "category_folder_map": {},   # {"Audio": "Movies", "Videos": "Movies"}
+        "category_conflict_policy": {},  # {"Documents": "skip"}
         "excluded_extensions": [],
         "excluded_folders": ["WebSeries", "Movies", "Images", "Videos", "Audio", "Documents",
                               "Archives", "Code", "Executables", "Fonts", "Others"],
@@ -400,6 +403,13 @@ class FileOrganizer:
         mapped = str(mapping.get(category, "")).strip()
         return mapped or category
 
+    def _conflict_policy(self, category: str) -> str:
+        policy_map = self.settings.get("category_conflict_policy", {}) or {}
+        policy = str(policy_map.get(category, "rename")).strip().lower()
+        if policy not in {"rename", "skip", "replace"}:
+            return "rename"
+        return policy
+
     def _is_smart_media_detection_enabled(self) -> bool:
         if self.settings.get("enable_smart_media_detection", None) is not None:
             return bool(self.settings.get("enable_smart_media_detection", True))
@@ -439,6 +449,7 @@ class FileOrganizer:
             target_folder = self._destination_folder_name(category)
             dest_dir = os.path.join(folder, target_folder)
             dest_path = os.path.join(dest_dir, entry.name)
+            conflict_policy = self._conflict_policy(category)
 
             # Avoid moving files already in a category subfolder
             parent_name = os.path.basename(os.path.dirname(entry.path))
@@ -446,8 +457,13 @@ class FileOrganizer:
                 plan.add_skip(entry.path, "Already organized")
                 continue
 
-            # Handle name conflicts
-            dest_path = self._resolve_conflict(dest_path)
+            # Handle name conflicts using the configured per-category policy.
+            if os.path.exists(dest_path):
+                if conflict_policy == "skip":
+                    plan.add_skip(entry.path, f"Conflict policy skip: {entry.name} already exists")
+                    continue
+                if conflict_policy == "rename":
+                    dest_path = self._resolve_conflict(dest_path)
 
             if not os.path.exists(dest_dir):
                 plan.add_new_dir(dest_dir)
@@ -455,6 +471,7 @@ class FileOrganizer:
             move_reasons = list(decision.reasons)
             if target_folder != category:
                 move_reasons.append(f"Destination folder mapped to: {target_folder}")
+            move_reasons.append(f"Conflict policy: {conflict_policy}")
 
             plan.add_move(
                 entry.path,
@@ -462,6 +479,7 @@ class FileOrganizer:
                 category,
                 confidence=decision.confidence,
                 reasons=move_reasons,
+                conflict_policy=conflict_policy,
             )
 
         return plan
@@ -489,9 +507,13 @@ class FileOrganizer:
             self.logger.info(f"Created directory: {new_dir}")
 
         for i, (source, destination, category) in enumerate(plan.moves):
+            detail = plan.move_details[i] if i < len(plan.move_details) else {}
+            conflict_policy = str(detail.get("conflict_policy", "rename")).lower()
             self._emit_progress(i + 1, total, f"Moving: {os.path.basename(source)}")
             try:
                 os.makedirs(os.path.dirname(destination), exist_ok=True)
+                if conflict_policy == "replace" and os.path.exists(destination):
+                    os.remove(destination)
                 shutil.move(source, destination)
                 record = FileMoveRecord(source, destination)
                 records.append(record)

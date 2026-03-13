@@ -610,8 +610,42 @@ class FileOrganizerQtApp(QMainWindow):
         remove_map_btn.clicked.connect(self._remove_category_mapping)
         layout.addWidget(remove_map_btn)
 
+        conflict_title = QLabel("Per-Category Conflict Policy")
+        conflict_title.setStyleSheet("font-weight: 600;")
+        layout.addWidget(conflict_title)
+
+        conflict_help = QLabel("Choose what happens when a destination file already exists: rename, skip, or replace.")
+        conflict_help.setWordWrap(True)
+        conflict_help.setObjectName("Muted")
+        layout.addWidget(conflict_help)
+
+        conflict_row = QHBoxLayout()
+        layout.addLayout(conflict_row)
+
+        self.conflict_category = QComboBox()
+        self.conflict_category.addItems(list(CATEGORIES.keys()))
+        self.conflict_category.setCurrentText("Documents")
+        conflict_row.addWidget(self.conflict_category, 1)
+
+        self.conflict_policy = QComboBox()
+        self.conflict_policy.addItems(["rename", "skip", "replace"])
+        conflict_row.addWidget(self.conflict_policy, 1)
+
+        save_conflict_btn = QPushButton("Save Policy")
+        save_conflict_btn.clicked.connect(self._save_conflict_policy)
+        conflict_row.addWidget(save_conflict_btn)
+
+        self.conflict_list = QListWidget()
+        self.conflict_list.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
+        layout.addWidget(self.conflict_list, 1)
+
+        remove_conflict_btn = QPushButton("Remove Selected Policy")
+        remove_conflict_btn.clicked.connect(self._remove_conflict_policy)
+        layout.addWidget(remove_conflict_btn)
+
         self._refresh_rules_list()
         self._refresh_category_mapping_list()
+        self._refresh_conflict_policy_list()
         return tab
 
     def _build_history_tab(self) -> QWidget:
@@ -871,6 +905,18 @@ class FileOrganizerQtApp(QMainWindow):
         for category, folder_name in sorted(mapping.items()):
             self.map_list.addItem(f"{category} -> {folder_name}")
 
+    def _refresh_conflict_policy_list(self):
+        self.conflict_list.clear()
+        policies = self.settings.get("category_conflict_policy", {}) or {}
+        if not policies:
+            self.conflict_list.addItem("No custom conflict policies configured.")
+            self.conflict_list.setEnabled(False)
+            return
+
+        self.conflict_list.setEnabled(True)
+        for category, policy in sorted(policies.items()):
+            self.conflict_list.addItem(f"{category} -> {policy}")
+
     def _save_category_mapping(self):
         category = self.map_category.currentText().strip()
         folder_name = self.map_folder.text().strip()
@@ -908,6 +954,39 @@ class FileOrganizerQtApp(QMainWindow):
             self.settings.set("category_folder_map", mapping)
             self._refresh_category_mapping_list()
             self._log(f"Destination mapping removed for: {category}")
+
+    def _save_conflict_policy(self):
+        category = self.conflict_category.currentText().strip()
+        policy = self.conflict_policy.currentText().strip().lower()
+        if not category or policy not in {"rename", "skip", "replace"}:
+            return
+
+        policies = self.settings.get("category_conflict_policy", {}) or {}
+        policies[category] = policy
+        self.settings.set("category_conflict_policy", policies)
+        self._refresh_conflict_policy_list()
+        self._log(f"Conflict policy saved: {category} -> {policy}", "success")
+
+    def _remove_conflict_policy(self):
+        row = self.conflict_list.currentRow()
+        if row < 0:
+            return
+
+        item = self.conflict_list.currentItem()
+        if item is None:
+            return
+
+        text = item.text()
+        if " -> " not in text:
+            return
+
+        category = text.split(" -> ", 1)[0].strip()
+        policies = self.settings.get("category_conflict_policy", {}) or {}
+        if category in policies:
+            del policies[category]
+            self.settings.set("category_conflict_policy", policies)
+            self._refresh_conflict_policy_list()
+            self._log(f"Conflict policy removed for: {category}")
 
     def _refresh_history_tab(self):
         sessions = self.organizer.history.list_sessions(limit=50)
