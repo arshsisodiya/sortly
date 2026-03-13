@@ -585,18 +585,31 @@ class FileOrganizerQtApp(QMainWindow):
         self.folder_label.setWordWrap(True)
         sidebar_layout.addWidget(self.folder_label)
 
+        actions_label = QLabel("Quick Actions")
+        actions_label.setStyleSheet("font-weight: 600;")
+        sidebar_layout.addWidget(actions_label)
+
         self.select_btn = QPushButton("Select Folder")
         self.select_btn.clicked.connect(self._pick_folder)
         sidebar_layout.addWidget(self.select_btn)
-
-        self.preview_btn = QPushButton("Preview Organization")
-        self.preview_btn.clicked.connect(self._do_preview)
-        sidebar_layout.addWidget(self.preview_btn)
 
         self.organize_btn = QPushButton("Organize Now")
         self.organize_btn.setObjectName("Primary")
         self.organize_btn.clicked.connect(self._do_organize)
         sidebar_layout.addWidget(self.organize_btn)
+
+        self.undo_btn = QPushButton("Undo Last Action")
+        self.undo_btn.clicked.connect(self._do_undo)
+        sidebar_layout.addWidget(self.undo_btn)
+
+        line_quick = QFrame()
+        line_quick.setObjectName("Divider")
+        line_quick.setFrameShape(QFrame.Shape.HLine)
+        sidebar_layout.addWidget(line_quick)
+
+        smart_label = QLabel("Smart Options")
+        smart_label.setStyleSheet("font-weight: 600;")
+        sidebar_layout.addWidget(smart_label)
 
         self.auto_checkbox = QCheckBox("Auto mode")
         self.auto_checkbox.setChecked(bool(self.settings.get("auto_mode", False)))
@@ -655,6 +668,15 @@ class FileOrganizerQtApp(QMainWindow):
         protected_row.addWidget(self.protected_minutes)
         protected_row.addWidget(QLabel("min"))
 
+        line_smart = QFrame()
+        line_smart.setObjectName("Divider")
+        line_smart.setFrameShape(QFrame.Shape.HLine)
+        sidebar_layout.addWidget(line_smart)
+
+        appearance_label = QLabel("Appearance & Settings")
+        appearance_label.setStyleSheet("font-weight: 600;")
+        sidebar_layout.addWidget(appearance_label)
+
         self.theme_toggle = QCheckBox("Dark theme")
         self.theme_toggle.setChecked(self._theme_mode == "dark")
         self.theme_toggle.stateChanged.connect(self._on_theme_toggled)
@@ -684,6 +706,11 @@ class FileOrganizerQtApp(QMainWindow):
         apply_preset_btn.clicked.connect(self._apply_selected_preset)
         preset_row.addWidget(apply_preset_btn)
 
+        line_settings = QFrame()
+        line_settings.setObjectName("Divider")
+        line_settings.setFrameShape(QFrame.Shape.HLine)
+        sidebar_layout.addWidget(line_settings)
+
         schedule_label = QLabel("Scheduled Auto-Organize")
         schedule_label.setStyleSheet("font-weight: 600;")
         sidebar_layout.addWidget(schedule_label)
@@ -707,24 +734,24 @@ class FileOrganizerQtApp(QMainWindow):
         schedule_row.addWidget(self.schedule_interval)
         schedule_row.addWidget(QLabel("min"))
 
-        line = QFrame()
-        line.setObjectName("Divider")
-        line.setFrameShape(QFrame.Shape.HLine)
-        sidebar_layout.addWidget(line)
+        line_history = QFrame()
+        line_history.setObjectName("Divider")
+        line_history.setFrameShape(QFrame.Shape.HLine)
+        sidebar_layout.addWidget(line_history)
+
+        history_title = QLabel("History")
+        history_title.setStyleSheet("font-weight: 600;")
+        sidebar_layout.addWidget(history_title)
 
         self.history_label = QLabel("")
         self.history_label.setObjectName("Muted")
         self.history_label.setWordWrap(True)
         sidebar_layout.addWidget(self.history_label)
 
-        self.undo_btn = QPushButton("Undo Last Action")
-        self.undo_btn.clicked.connect(self._do_undo)
-        sidebar_layout.addWidget(self.undo_btn)
-
-        line2 = QFrame()
-        line2.setObjectName("Divider")
-        line2.setFrameShape(QFrame.Shape.HLine)
-        sidebar_layout.addWidget(line2)
+        line_monitor = QFrame()
+        line_monitor.setObjectName("Divider")
+        line_monitor.setFrameShape(QFrame.Shape.HLine)
+        sidebar_layout.addWidget(line_monitor)
 
         monitor_label = QLabel("Monitoring")
         monitor_label.setStyleSheet("font-weight: 600;")
