@@ -528,14 +528,24 @@ class FileOrganizerQtApp(QMainWindow):
         self.summary_label.setObjectName("Muted")
         layout.addWidget(self.summary_label)
 
-        self.moves_table = QTableWidget(0, 3)
-        self.moves_table.setHorizontalHeaderLabels(["File", "Category", "Destination"])
+        self.moves_table = QTableWidget(0, 4)
+        self.moves_table.setHorizontalHeaderLabels(["File", "Category", "Confidence", "Destination"])
         self.moves_table.horizontalHeader().setStretchLastSection(True)
         self.moves_table.verticalHeader().setVisible(False)
         self.moves_table.setAlternatingRowColors(True)
         self.moves_table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self.moves_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+        self.moves_table.itemSelectionChanged.connect(self._show_selected_move_reason)
         layout.addWidget(self.moves_table)
+
+        reason_title = QLabel("Why this classification")
+        reason_title.setStyleSheet("font-weight: 600;")
+        layout.addWidget(reason_title)
+
+        self.reason_panel = QTextEdit()
+        self.reason_panel.setReadOnly(True)
+        self.reason_panel.setMaximumHeight(130)
+        layout.addWidget(self.reason_panel)
         return tab
 
     def _build_rules_tab(self) -> QWidget:
@@ -751,12 +761,14 @@ class FileOrganizerQtApp(QMainWindow):
 
     def _render_plan(self, plan: OrganizationPlan):
         self.moves_table.setRowCount(0)
-        for src, dst, cat in plan.moves:
+        for index, (src, dst, cat) in enumerate(plan.moves):
+            detail = plan.move_details[index] if index < len(plan.move_details) else {}
             row = self.moves_table.rowCount()
             self.moves_table.insertRow(row)
             self.moves_table.setItem(row, 0, QTableWidgetItem(Path(src).name))
             self.moves_table.setItem(row, 1, QTableWidgetItem(cat))
-            self.moves_table.setItem(row, 2, QTableWidgetItem(dst))
+            self.moves_table.setItem(row, 2, QTableWidgetItem(f"{detail.get('confidence', 0)}%"))
+            self.moves_table.setItem(row, 3, QTableWidgetItem(dst))
 
         cats = plan.categories_summary
         if not cats:
@@ -765,6 +777,34 @@ class FileOrganizerQtApp(QMainWindow):
 
         summary = ", ".join(f"{k}: {v}" for k, v in sorted(cats.items(), key=lambda i: -i[1]))
         self.summary_label.setText(f"{plan.total_files} file(s) planned. {summary}")
+        if plan.move_details:
+            self.moves_table.selectRow(0)
+            self._show_selected_move_reason()
+        else:
+            self.reason_panel.setPlainText("No file selected.")
+
+    def _show_selected_move_reason(self):
+        if self._current_plan is None:
+            self.reason_panel.setPlainText("Preview a folder to inspect classification reasons.")
+            return
+
+        row = self.moves_table.currentRow()
+        if row < 0 or row >= len(self._current_plan.move_details):
+            self.reason_panel.setPlainText("Select a file to inspect classification reasons.")
+            return
+
+        detail = self._current_plan.move_details[row]
+        reasons = detail.get("reasons", []) or ["No additional reasoning available."]
+        confidence = detail.get("confidence", 0)
+        category = detail.get("category", "")
+        destination = detail.get("destination", "")
+        text = (
+            f"Category: {category}\n"
+            f"Confidence: {confidence}%\n"
+            f"Destination: {destination}\n\n"
+            + "\n".join(f"- {reason}" for reason in reasons)
+        )
+        self.reason_panel.setPlainText(text)
 
     def _do_undo(self):
         success, message = self.organizer.undo_last()

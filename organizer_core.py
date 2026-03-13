@@ -9,6 +9,7 @@ import json
 import logging
 import threading
 import time
+from dataclasses import dataclass, field
 from pathlib import Path
 from datetime import datetime
 from typing import Dict, List, Tuple, Optional, Callable
@@ -111,6 +112,14 @@ class FileMoveRecord:
         return cls(data["source"], data["destination"], data.get("timestamp"))
 
 
+@dataclass
+class ClassificationDecision:
+    category: str
+    confidence: int
+    reasons: List[str] = field(default_factory=list)
+    matched_rule: Optional[str] = None
+
+
 # ─── Organization Plan ────────────────────────────────────────────────────────
 
 class OrganizationPlan:
@@ -118,11 +127,20 @@ class OrganizationPlan:
 
     def __init__(self):
         self.moves: List[Tuple[str, str, str]] = []  # (source, dest, category)
+        self.move_details: List[Dict] = []
         self.skipped: List[Tuple[str, str]] = []     # (path, reason)
         self.new_dirs: List[str] = []
 
-    def add_move(self, source: str, destination: str, category: str):
+    def add_move(self, source: str, destination: str, category: str,
+                 confidence: int = 0, reasons: Optional[List[str]] = None):
         self.moves.append((source, destination, category))
+        self.move_details.append({
+            "source": source,
+            "destination": destination,
+            "category": category,
+            "confidence": int(confidence),
+            "reasons": list(reasons or []),
+        })
 
     def add_skip(self, path: str, reason: str):
         self.skipped.append((path, reason))
@@ -311,6 +329,14 @@ class Categorizer:
 
         return "Others"
 
+    def matching_rule(self, file_path: str) -> Optional[Dict]:
+        name = os.path.basename(file_path).lower()
+        for rule in self.custom_rules:
+            pattern = rule.get("pattern", "").lower()
+            if pattern and pattern in name:
+                return rule
+        return None
+
 
 # ─── Main Organizer ───────────────────────────────────────────────────────────
 
@@ -328,6 +354,45 @@ class FileOrganizer:
     def _emit_progress(self, current: int, total: int, message: str = ""):
         if self.progress_callback:
             self.progress_callback(current, total, message)
+
+    def analyze_file(self, file_path: str, sibling_video_paths: Optional[List[str]] = None) -> ClassificationDecision:
+        rule = self.categorizer.matching_rule(file_path)
+        if rule:
+            category = rule.get("category", "Others")
+            return ClassificationDecision(
+                category=category,
+                confidence=100,
+                reasons=[f"Matched custom rule: {rule.get('pattern', '')}"],
+                matched_rule=rule.get("pattern", ""),
+            )
+
+        category = self.categorizer.categorize(file_path)
+        reasons: List[str] = []
+        confidence = 30
+
+        ext = Path(file_path).suffix.lower()
+        if category != "Others":
+            confidence = 75
+            reasons.append(f"Matched extension: {ext or '(none)'}")
+        else:
+            reasons.append("No matching rule or known extension")
+
+        if category == "Videos" and self._is_smart_media_detection_enabled():
+            series_files = set(self.movie_detector.detect_webseries_files(sibling_video_paths or [file_path]))
+            if file_path in series_files:
+                return ClassificationDecision(
+                    category="WebSeries",
+                    confidence=92,
+                    reasons=reasons + ["Detected episode naming pattern across multiple files"],
+                )
+            if self.movie_detector.is_movie(file_path):
+                return ClassificationDecision(
+                    category="Movies",
+                    confidence=86,
+                    reasons=reasons + ["Detected long-form movie metadata"],
+                )
+
+        return ClassificationDecision(category=category, confidence=confidence, reasons=reasons)
 
     def _destination_folder_name(self, category: str) -> str:
         """Resolve final destination folder name for a category."""
@@ -361,9 +426,7 @@ class FileOrganizer:
             self.logger.error(f"Permission denied: {folder} — {e}")
             return plan
 
-        webseries_files = set()
-        if self._is_smart_media_detection_enabled():
-            webseries_files = self.movie_detector.detect_webseries_files([e.path for e in entries])
+        sibling_paths = [e.path for e in entries]
 
         for entry in entries:
             ext = Path(entry.path).suffix.lower()
@@ -371,11 +434,8 @@ class FileOrganizer:
                 plan.add_skip(entry.path, f"Excluded extension: {ext}")
                 continue
 
-            category = self.categorizer.categorize(entry.path)
-            if category == "Videos" and entry.path in webseries_files:
-                category = "WebSeries"
-            else:
-                category = self._maybe_promote_to_movie(entry.path, category)
+            decision = self.analyze_file(entry.path, sibling_video_paths=sibling_paths)
+            category = decision.category
             target_folder = self._destination_folder_name(category)
             dest_dir = os.path.join(folder, target_folder)
             dest_path = os.path.join(dest_dir, entry.name)
@@ -392,7 +452,17 @@ class FileOrganizer:
             if not os.path.exists(dest_dir):
                 plan.add_new_dir(dest_dir)
 
-            plan.add_move(entry.path, dest_path, category)
+            move_reasons = list(decision.reasons)
+            if target_folder != category:
+                move_reasons.append(f"Destination folder mapped to: {target_folder}")
+
+            plan.add_move(
+                entry.path,
+                dest_path,
+                category,
+                confidence=decision.confidence,
+                reasons=move_reasons,
+            )
 
         return plan
 
