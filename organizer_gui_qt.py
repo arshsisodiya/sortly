@@ -26,6 +26,7 @@ from PySide6.QtWidgets import (
     QMainWindow,
     QMessageBox,
     QPushButton,
+    QScrollArea,
     QSplitter,
     QStatusBar,
     QStyleFactory,
@@ -157,6 +158,21 @@ class FileOrganizerQtApp(QMainWindow):
                     color: #e5e7eb;
                 }
 
+                QTableWidget {
+                    gridline-color: #273246;
+                    alternate-background-color: #101827;
+                }
+
+                QTableWidget::item {
+                    background: #0b1220;
+                    color: #e5e7eb;
+                }
+
+                QTableWidget::item:selected {
+                    background: #2563eb;
+                    color: #ffffff;
+                }
+
                 QComboBox QAbstractItemView {
                     background: #0b1220;
                     color: #e5e7eb;
@@ -218,6 +234,39 @@ class FileOrganizerQtApp(QMainWindow):
                     color: #e5e7eb;
                     border: 1px solid #334155;
                     padding: 6px;
+                }
+
+                QScrollBar:vertical {
+                    background: #0f172a;
+                    width: 10px;
+                    margin: 0;
+                }
+                QScrollBar::handle:vertical {
+                    background: #334155;
+                    min-height: 24px;
+                    border-radius: 4px;
+                }
+                QScrollBar::handle:vertical:hover {
+                    background: #475569;
+                }
+                QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+                    height: 0px;
+                }
+                QScrollBar:horizontal {
+                    background: #0f172a;
+                    height: 10px;
+                    margin: 0;
+                }
+                QScrollBar::handle:horizontal {
+                    background: #334155;
+                    min-width: 24px;
+                    border-radius: 4px;
+                }
+                QScrollBar::handle:horizontal:hover {
+                    background: #475569;
+                }
+                QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {
+                    width: 0px;
                 }
                 """
             )
@@ -285,6 +334,21 @@ class FileOrganizerQtApp(QMainWindow):
                 padding: 6px;
             }
 
+            QTableWidget {
+                gridline-color: #d6dce6;
+                alternate-background-color: #f8fbff;
+            }
+
+            QTableWidget::item {
+                background: #ffffff;
+                color: #1f2937;
+            }
+
+            QTableWidget::item:selected {
+                background: #1668e3;
+                color: #ffffff;
+            }
+
             QComboBox QAbstractItemView {
                 background: #ffffff;
                 color: #1f2937;
@@ -346,6 +410,39 @@ class FileOrganizerQtApp(QMainWindow):
                 color: #1f2937;
                 border: 1px solid #d6dce6;
                 padding: 6px;
+            }
+
+            QScrollBar:vertical {
+                background: #f4f6f9;
+                width: 10px;
+                margin: 0;
+            }
+            QScrollBar::handle:vertical {
+                background: #c5cedb;
+                min-height: 24px;
+                border-radius: 4px;
+            }
+            QScrollBar::handle:vertical:hover {
+                background: #aeb9c8;
+            }
+            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+                height: 0px;
+            }
+            QScrollBar:horizontal {
+                background: #f4f6f9;
+                height: 10px;
+                margin: 0;
+            }
+            QScrollBar::handle:horizontal {
+                background: #c5cedb;
+                min-width: 24px;
+                border-radius: 4px;
+            }
+            QScrollBar::handle:horizontal:hover {
+                background: #aeb9c8;
+            }
+            QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {
+                width: 0px;
             }
             """
         )
@@ -671,7 +768,13 @@ class FileOrganizerQtApp(QMainWindow):
         self.tabs.addTab(self.log_tab, "Activity Log")
         self.tabs.currentChanged.connect(self._on_tab_changed)
 
-        splitter.addWidget(sidebar)
+        sidebar_scroll = QScrollArea()
+        sidebar_scroll.setWidgetResizable(True)
+        sidebar_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        sidebar_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        sidebar_scroll.setWidget(sidebar)
+
+        splitter.addWidget(sidebar_scroll)
         splitter.addWidget(content)
         splitter.setSizes([320, 860])
 
@@ -952,6 +1055,7 @@ class FileOrganizerQtApp(QMainWindow):
         self.folder_label.setText(folder)
         self.statusBar().showMessage(f"Selected: {folder}")
         self._log(f"Selected folder: {folder}")
+        self._do_preview()
 
     def _show_smart_media_info(self):
         self._show_info(
