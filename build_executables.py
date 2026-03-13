@@ -44,7 +44,7 @@ def clean():
 
 def build_cli():
     """Build the CLI executable."""
-    print("\n🔨  Building CLI executable…")
+    print("\n[*] Building CLI executable...")
     cmd = [
         sys.executable, "-m", "PyInstaller",
         "--onefile",
@@ -58,15 +58,15 @@ def build_cli():
     ]
     result = subprocess.run(cmd, cwd=BASE_DIR)
     if result.returncode == 0:
-        print("  ✓  CLI executable built: dist/sortly-cli.exe")
+        print("  OK  CLI executable built: dist/sortly-cli.exe")
     else:
-        print("  ✗  CLI build failed.")
+        print("  ERR CLI build failed.")
     return result.returncode == 0
 
 
 def build_gui():
     """Build the GUI executable (onedir for fast startup and Inno Setup packaging)."""
-    print("\n🔨  Building GUI executable…")
+    print("\n[*] Building GUI executable...")
 
     # Check for icon
     icon_flag = []
@@ -93,15 +93,15 @@ def build_gui():
     ]
     result = subprocess.run(cmd, cwd=BASE_DIR)
     if result.returncode == 0:
-        print("  ✓  GUI built: dist/sortly-gui/sortly-gui.exe")
+        print("  OK  GUI built: dist/sortly-gui/sortly-gui.exe")
     else:
-        print("  ✗  GUI build failed.")
+        print("  ERR GUI build failed.")
     return result.returncode == 0
 
 
 def build_installer(version: str) -> bool:
     """Compile the Inno Setup installer. Requires Inno Setup 6 to be installed."""
-    print(f"\n📦  Building installer (v{version})…")
+    print(f"\n[*] Building installer (v{version})...")
 
     iscc_candidates = [
         Path(r"C:\Program Files (x86)\Inno Setup 6\ISCC.exe"),
@@ -109,13 +109,13 @@ def build_installer(version: str) -> bool:
     ]
     iscc = next((p for p in iscc_candidates if p.exists()), None)
     if iscc is None:
-        print("  ⚠  Inno Setup 6 not found – skipping installer build.")
+        print("  WARN Inno Setup 6 not found - skipping installer build.")
         print("     Install from: https://jrsoftware.org/isinfo.php")
         return False
 
     iss_path = BASE_DIR / "installer" / "sortly.iss"
     if not iss_path.exists():
-        print(f"  ✗  Inno Setup script not found: {iss_path}")
+        print(f"  ERR Inno Setup script not found: {iss_path}")
         return False
 
     result = subprocess.run(
@@ -123,16 +123,16 @@ def build_installer(version: str) -> bool:
         cwd=BASE_DIR,
     )
     if result.returncode == 0:
-        print(f"  ✓  Installer built: dist/SortlySetup-{version}.exe")
+        print(f"  OK  Installer built: dist/SortlySetup-{version}.exe")
         return True
     else:
-        print("  ✗  Installer build failed.")
+        print("  ERR Installer build failed.")
         return False
 
 
 def main():
     print("=" * 60)
-    print("  Sortly — Build System")
+    print("  Sortly - Build System")
     print("=" * 60)
 
     version = _get_version()
@@ -143,14 +143,16 @@ def main():
         import PyInstaller
         print(f"  PyInstaller {PyInstaller.__version__} found.")
     except ImportError:
-        print("\n  ✗  PyInstaller not found. Install with:")
+        print("\n  ERR PyInstaller not found. Install with:")
         print("     pip install pyinstaller")
         sys.exit(1)
 
     # Check watchdog
     try:
-        import watchdog
-        print(f"  watchdog {watchdog.__version__} found.")
+        import importlib.metadata
+        import watchdog  # noqa: F401
+        watchdog_ver = importlib.metadata.version("watchdog")
+        print(f"  watchdog {watchdog_ver} found.")
     except ImportError:
         print("\n  ✗  watchdog not found. Install with:")
         print("     pip install watchdog")
@@ -168,17 +170,17 @@ def main():
 
     print("\n" + "=" * 60)
     if ok_cli and ok_gui:
-        print("  ✓  Build complete!")
+        print("  Build complete!")
         print(f"\n  Output files:")
-        print(f"    dist/sortly-cli.exe          — Portable CLI tool")
-        print(f"    dist/sortly-gui/sortly-gui.exe  — GUI application (onedir)")
+        print(f"    dist/sortly-cli.exe             -- Portable CLI tool")
+        print(f"    dist/sortly-gui/sortly-gui.exe  -- GUI application (onedir)")
         if ok_installer:
-            print(f"    dist/SortlySetup-{version}.exe — Windows installer")
+            print(f"    dist/SortlySetup-{version}.exe  -- Windows installer")
         print(f"\n  CLI usage:")
         print(f"    sortly-cli.exe organize C:\\Users\\You\\Downloads --auto")
         print(f"    sortly-cli.exe --help")
     else:
-        print("  ⚠  Build completed with errors.")
+        print("  Build completed with errors.")
     print("=" * 60)
 
 
