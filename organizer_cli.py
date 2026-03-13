@@ -25,7 +25,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from organizer_core import (
     FileOrganizer, Settings, CATEGORIES,
-    OrganizationPlan, HistoryManager
+    OrganizationPlan, HistoryManager, format_human_timestamp
 )
 
 # ─── ANSI Colors ──────────────────────────────────────────────────────────────
@@ -228,7 +228,7 @@ def cmd_undo(args, settings: Settings, organizer: FileOrganizer):
 
     count = len(last.get("moves", []))
     folder = last.get("folder", "unknown")
-    ts = last.get("timestamp", "unknown")
+    ts = format_human_timestamp(last.get("timestamp", ""))
 
     print(f"\n  {C.BOLD}Last Session:{C.RESET}")
     print(f"  Folder:    {folder}")

@@ -18,6 +18,25 @@ from watchdog.events import FileSystemEventHandler
 from movie_detector import MovieDetector
 from duplicate_detector import DuplicateDetector
 
+
+def format_human_timestamp(value: str) -> str:
+    """Format timestamp to DD:MM:YY HH:MM:SS when possible."""
+    if not value:
+        return "unknown time"
+    text = str(value).strip()
+    try:
+        dt = datetime.fromisoformat(text)
+        return dt.strftime("%d:%m:%y %H:%M:%S")
+    except Exception:
+        pass
+    for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M"):
+        try:
+            dt = datetime.strptime(text, fmt)
+            return dt.strftime("%d:%m:%y %H:%M:%S")
+        except Exception:
+            continue
+    return text
+
 # ─── Category Definitions ─────────────────────────────────────────────────────
 
 CATEGORIES: Dict[str, Dict] = {
@@ -621,7 +640,8 @@ class FileOrganizer:
         if errors:
             return False, f"Undo completed with {len(errors)} error(s)."
         count = len(moves)
-        return True, f"Successfully undone {count} file move(s) from {session.get('timestamp', 'unknown time')}."
+        ts = format_human_timestamp(session.get("timestamp", ""))
+        return True, f"Successfully undone {count} file move(s) from {ts}."
 
     # ── Real-time Monitoring ──────────────────────────────────────────────────
 

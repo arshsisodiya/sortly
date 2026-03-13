@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import List, Optional
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from organizer_core import FileOrganizer, Settings, CATEGORIES, OrganizationPlan
+from organizer_core import FileOrganizer, Settings, CATEGORIES, OrganizationPlan, format_human_timestamp
 
 # ─── Theme Constants ──────────────────────────────────────────────────────────
 
@@ -855,7 +855,7 @@ class FileOrganizerApp(tk.Tk):
         count = self.organizer.history.session_count
         last = self.organizer.history.peek_last_session()
         if last:
-            ts = last.get("timestamp", "")[:16].replace("T", " ")
+            ts = format_human_timestamp(last.get("timestamp", ""))
             n  = len(last.get("moves", []))
             self._undo_info.config(text=f"Last: {ts}\n{n} file(s) moved")
         else:

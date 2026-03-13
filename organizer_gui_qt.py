@@ -40,7 +40,7 @@ from PySide6.QtWidgets import (
 )
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from organizer_core import CATEGORIES, FileOrganizer, OrganizationPlan, Settings
+from organizer_core import CATEGORIES, FileOrganizer, OrganizationPlan, Settings, format_human_timestamp
 from movie_detector import MovieDetector
 from smart_presets import apply_preset, preset_names
 
@@ -1414,7 +1414,7 @@ class FileOrganizerQtApp(QMainWindow):
         self.history_table.setRowCount(0)
 
         for idx, session in enumerate(sessions):
-            ts = str(session.get("timestamp", ""))[:16].replace("T", " ")
+            ts = format_human_timestamp(session.get("timestamp", ""))
             folder = str(session.get("folder", ""))
             moves = len(session.get("moves", []))
 
@@ -1534,7 +1534,7 @@ class FileOrganizerQtApp(QMainWindow):
                 self._refresh_history_tab()
             return
 
-        ts = str(last.get("timestamp", ""))[:16].replace("T", " ")
+        ts = format_human_timestamp(last.get("timestamp", ""))
         n = len(last.get("moves", []))
         self.history_label.setText(f"History: {count} session(s)\nLast: {ts} ({n} move(s))")
         if hasattr(self, "history_table"):
