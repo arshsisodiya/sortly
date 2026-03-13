@@ -9,7 +9,7 @@ import sys
 from pathlib import Path
 from typing import Optional
 
-from PySide6.QtCore import QObject, Qt, Signal
+from PySide6.QtCore import QObject, Qt, Signal, QTimer
 from PySide6.QtGui import QAction, QCloseEvent
 from PySide6.QtWidgets import (
     QApplication,
@@ -61,6 +61,8 @@ class FileOrganizerQtApp(QMainWindow):
 
         self._monitor_bridge = MonitorBridge()
         self._monitor_bridge.file_organized.connect(self._on_monitor_file_organized)
+        self._schedule_timer = QTimer(self)
+        self._schedule_timer.timeout.connect(self._run_scheduled_organize)
 
         self.setWindowTitle("FileOrganizer")
         self.resize(1180, 760)
@@ -69,6 +71,7 @@ class FileOrganizerQtApp(QMainWindow):
         self._apply_windows_base_style()
         self._build_ui()
         self._set_theme(self._theme_mode, persist=False)
+        self._update_schedule_timer()
         self._refresh_history_label()
 
     def _apply_windows_base_style(self):
@@ -365,6 +368,36 @@ class FileOrganizerQtApp(QMainWindow):
         self._set_theme(selected, persist=True)
         self._log(f"Theme changed to: {selected}")
 
+    def _on_schedule_settings_changed(self, _value=None):
+        enabled = bool(self.schedule_checkbox.isChecked())
+        interval = int(self.schedule_interval.currentText())
+        self.settings.set("schedule_enabled", enabled)
+        self.settings.set("schedule_interval_minutes", interval)
+        self._update_schedule_timer()
+        self._log(f"Scheduled auto-organize set to: {enabled} every {interval} minute(s)")
+
+    def _update_schedule_timer(self):
+        enabled = bool(self.settings.get("schedule_enabled", False))
+        interval = int(self.settings.get("schedule_interval_minutes", 15))
+        if enabled:
+            self._schedule_timer.start(max(1, interval) * 60 * 1000)
+        else:
+            self._schedule_timer.stop()
+
+    def _run_scheduled_organize(self):
+        if not self._current_folder or not os.path.isdir(self._current_folder):
+            self._log("Scheduled auto-organize skipped: no valid folder selected", "warning")
+            return
+        plan, _ = self.organizer.organize_folder(self._current_folder, auto=False)
+        if plan.total_files == 0:
+            self._log("Scheduled auto-organize: nothing to do")
+            return
+        records = self.organizer.execute_plan(plan, self._current_folder)
+        self._current_plan = None
+        self._refresh_history_label()
+        self._log(f"Scheduled auto-organize moved {len(records)} file(s)", "success")
+        self.statusBar().showMessage(f"Scheduled run completed: {len(records)} file(s) organized")
+
     def _build_ui(self):
         root = QWidget()
         self.setCentralWidget(root)
@@ -446,6 +479,29 @@ class FileOrganizerQtApp(QMainWindow):
         self.theme_toggle.setChecked(self._theme_mode == "dark")
         self.theme_toggle.stateChanged.connect(self._on_theme_toggled)
         sidebar_layout.addWidget(self.theme_toggle)
+
+        schedule_label = QLabel("Scheduled Auto-Organize")
+        schedule_label.setStyleSheet("font-weight: 600;")
+        sidebar_layout.addWidget(schedule_label)
+
+        self.schedule_checkbox = QCheckBox("Enable schedule")
+        self.schedule_checkbox.setChecked(bool(self.settings.get("schedule_enabled", False)))
+        self.schedule_checkbox.stateChanged.connect(self._on_schedule_settings_changed)
+        sidebar_layout.addWidget(self.schedule_checkbox)
+
+        schedule_row = QHBoxLayout()
+        sidebar_layout.addLayout(schedule_row)
+        schedule_row.addWidget(QLabel("Every"))
+
+        self.schedule_interval = QComboBox()
+        self.schedule_interval.addItems(["5", "10", "15", "30", "60"])
+        current_interval = str(self.settings.get("schedule_interval_minutes", 15))
+        index = self.schedule_interval.findText(current_interval)
+        if index >= 0:
+            self.schedule_interval.setCurrentIndex(index)
+        self.schedule_interval.currentTextChanged.connect(self._on_schedule_settings_changed)
+        schedule_row.addWidget(self.schedule_interval)
+        schedule_row.addWidget(QLabel("min"))
 
         line = QFrame()
         line.setObjectName("Divider")

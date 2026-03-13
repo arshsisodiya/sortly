@@ -168,6 +168,8 @@ class OrganizationPlan:
 class Settings:
     DEFAULT_SETTINGS = {
         "auto_mode": False,
+        "schedule_enabled": False,
+        "schedule_interval_minutes": 15,
         "monitor_enabled": False,
         "enable_movie_detection": False,
         "enable_smart_media_detection": True,
