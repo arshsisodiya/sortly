@@ -760,6 +760,31 @@ class FileOrganizerQtApp(QMainWindow):
         remove_conflict_btn.clicked.connect(self._remove_conflict_policy)
         layout.addWidget(remove_conflict_btn)
 
+        tester_title = QLabel("Rule Tester")
+        tester_title.setStyleSheet("font-weight: 600;")
+        layout.addWidget(tester_title)
+
+        tester_help = QLabel("Enter a filename to see how it will be classified before organizing.")
+        tester_help.setWordWrap(True)
+        tester_help.setObjectName("Muted")
+        layout.addWidget(tester_help)
+
+        tester_row = QHBoxLayout()
+        layout.addLayout(tester_row)
+
+        self.rule_tester_input = QLineEdit()
+        self.rule_tester_input.setPlaceholderText("Example: My.Show.S01E01.mkv")
+        tester_row.addWidget(self.rule_tester_input, 1)
+
+        test_rule_btn = QPushButton("Test")
+        test_rule_btn.clicked.connect(self._test_rule)
+        tester_row.addWidget(test_rule_btn)
+
+        self.rule_tester_output = QTextEdit()
+        self.rule_tester_output.setReadOnly(True)
+        self.rule_tester_output.setMaximumHeight(120)
+        layout.addWidget(self.rule_tester_output)
+
         self._refresh_rules_list()
         self._refresh_category_mapping_list()
         self._refresh_conflict_policy_list()
@@ -1133,6 +1158,23 @@ class FileOrganizerQtApp(QMainWindow):
             self.settings.set("category_conflict_policy", policies)
             self._refresh_conflict_policy_list()
             self._log(f"Conflict policy removed for: {category}")
+
+    def _test_rule(self):
+        filename = self.rule_tester_input.text().strip()
+        if not filename:
+            self.rule_tester_output.setPlainText("Enter a filename to test.")
+            return
+
+        fake_path = str(Path(self._current_folder or os.getcwd()) / filename)
+        decision = self.organizer.analyze_file(fake_path, sibling_video_paths=[fake_path])
+        destination = self.organizer._destination_folder_name(decision.category)
+        result = (
+            f"Category: {decision.category}\n"
+            f"Destination folder: {destination}\n"
+            f"Confidence: {decision.confidence}%\n\n"
+            + "\n".join(f"- {reason}" for reason in (decision.reasons or ["No rule matched."]))
+        )
+        self.rule_tester_output.setPlainText(result)
 
     def _refresh_history_tab(self):
         sessions = self.organizer.history.list_sessions(limit=50)
