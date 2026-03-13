@@ -85,8 +85,8 @@ jobs:
       - name: List release artifacts
         shell: pwsh
         run: |
-          Get-ChildItem dist\ -Filter "*.exe" -Recurse |
-            Where-Object { -not $_.PSIsContainer } |
+          Get-ChildItem dist\ -Recurse |
+            Where-Object { -not $_.PSIsContainer -and ($_.Extension -in '.exe', '.zip') } |
             Format-Table Name, @{N='Size (MB)';E={[math]::Round($_.Length/1MB,2)}}
 
       # --------------------------------------------------------
@@ -103,3 +103,4 @@ jobs:
           files: |
             dist/SortlySetup-${{ steps.version.outputs.VERSION }}.exe
             dist/sortly-cli.exe
+            dist/SortlyPortable-${{ steps.version.outputs.VERSION }}.zip

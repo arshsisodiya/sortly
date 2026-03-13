@@ -86,9 +86,10 @@ pip install -r requirements.txt
 
 Download `SortlySetup-x.y.z.exe` from the [Releases](https://github.com/your-username/sortly/releases) page and run it. The installer places `Sortly.exe` in `Program Files\Sortly` and adds a Start Menu shortcut.
 
-### Portable exe
+### Portable builds
 
-Download `sortly-cli.exe` from Releases for a standalone CLI — no installer, no Python required.
+- Download `SortlyPortable-x.y.z.zip` from Releases, extract it anywhere, and run `Sortly.exe`.
+- Download `sortly-cli.exe` from Releases for a standalone CLI — no installer, no Python required.
 
 ---
 
@@ -830,9 +831,10 @@ python build_executables.py
 3. Builds `dist/sortly-cli.exe` — portable CLI (PyInstaller `--onefile`)
 4. Builds `dist/Sortly/` — GUI onedir bundle (PyInstaller `--onedir`)
 5. Strips unused Qt DLLs from the onedir bundle
-6. Compiles `dist/SortlySetup-x.y.z.exe` using Inno Setup (if ISCC.exe found)
+6. Packages `dist/SortlyPortable-x.y.z.zip` from the GUI folder for no-install usage
+7. Compiles `dist/SortlySetup-x.y.z.exe` using Inno Setup (if ISCC.exe found)
 
-### Build CLI only
+### Build without installer (CI mode)
 
 ```bash
 python build_executables.py --skip-installer
@@ -850,6 +852,7 @@ python build_executables.py --skip-installer
 |---|---|
 | `dist/sortly-cli.exe` | Portable single-file CLI — no install needed |
 | `dist/Sortly/Sortly.exe` | GUI app (onedir — run from the folder) |
+| `dist/SortlyPortable-1.0.0.zip` | Portable GUI package (extract and run `Sortly.exe`) |
 | `dist/SortlySetup-1.0.0.exe` | Windows installer with Start Menu shortcuts and uninstaller |
 
 ---
@@ -878,7 +881,7 @@ The workflow:
 5. Runs `python build_executables.py --skip-installer`
 6. Installs Inno Setup via Chocolatey
 7. Compiles the installer with ISCC
-8. Creates a GitHub Release with `SortlySetup-x.y.z.exe` and `sortly-cli.exe` as assets
+8. Creates a GitHub Release with `SortlySetup-x.y.z.exe`, `SortlyPortable-x.y.z.zip`, and `sortly-cli.exe` as assets
 
 **Pre-releases:** tags with a hyphen (e.g. `v1.1.0-beta.1`) are automatically published as pre-releases.
 

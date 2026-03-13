@@ -3,6 +3,7 @@
 Usage:
     python build_executables.py               # build everything (PyInstaller + Inno Setup)
     python build_executables.py --skip-installer  # PyInstaller only (used by CI before ISCC step)
+    python build_executables.py --skip-portable   # skip portable ZIP packaging
 """
 
 import os
@@ -19,6 +20,7 @@ BUILD_DIR = BASE_DIR / "build"
 UPX_DIR  = BASE_DIR / "tools" / "upx"
 
 SKIP_INSTALLER = "--skip-installer" in sys.argv
+SKIP_PORTABLE = "--skip-portable" in sys.argv
 
 # UPX release to download when not found in PATH or tools/upx/
 _UPX_VERSION = "4.2.4"
@@ -303,6 +305,27 @@ def build_installer(version: str) -> bool:
         return False
 
 
+def build_portable_zip(version: str) -> bool:
+    """Create a portable ZIP from the GUI onedir output."""
+    print(f"\n[*] Building portable ZIP (v{version})...")
+
+    gui_dir = DIST_DIR / "Sortly"
+    if not gui_dir.exists():
+        print(f"  ERR GUI output not found: {gui_dir}")
+        return False
+
+    archive_base = DIST_DIR / f"SortlyPortable-{version}"
+    archive_path = archive_base.with_suffix(".zip")
+
+    if archive_path.exists():
+        archive_path.unlink()
+
+    shutil.make_archive(str(archive_base), "zip", root_dir=gui_dir)
+    size_mb = archive_path.stat().st_size / 1_048_576
+    print(f"  OK  Portable ZIP built: dist/{archive_path.name} ({size_mb:.1f} MB)")
+    return True
+
+
 def main():
     print("=" * 60)
     print("  Sortly - Build System")
@@ -336,7 +359,11 @@ def main():
 
     ok_cli = build_cli()
     ok_gui = build_gui()
+    ok_portable = True
     ok_installer = True
+
+    if ok_gui and not SKIP_PORTABLE:
+        ok_portable = build_portable_zip(version)
 
     if ok_gui and not SKIP_INSTALLER:
         ok_installer = build_installer(version)
@@ -347,6 +374,8 @@ def main():
         print(f"\n  Output files:")
         print(f"    dist/sortly-cli.exe             -- Portable CLI tool")
         print(f"    dist/Sortly/Sortly.exe          -- GUI application (onedir)")
+        if ok_portable:
+            print(f"    dist/SortlyPortable-{version}.zip -- Portable GUI (no installer)")
         if ok_installer:
             print(f"    dist/SortlySetup-{version}.exe  -- Windows installer")
         print(f"\n  CLI usage:")
