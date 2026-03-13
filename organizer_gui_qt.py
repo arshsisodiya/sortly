@@ -1,7 +1,0 @@
-"""Legacy Qt entrypoint. Use sortly_gui_qt.py instead."""
-
-from sortly.gui_qt import main
-
-
-if __name__ == "__main__":
-    main()

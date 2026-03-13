@@ -30,13 +30,6 @@ python sortly_cli.py --help
 python sortly_cli.py organize "C:\\Users\\You\\Downloads"
 ```
 
-Legacy wrappers still exist:
-
-```bash
-python organizer_gui_qt.py
-python organizer_cli.py --help
-```
-
 ## Build Executables
 
 ```bash
@@ -64,12 +57,6 @@ fileorganizer/
 |  |- smart_presets.py
 |- sortly_gui_qt.py
 |- sortly_cli.py
-|- organizer_gui_qt.py        # legacy wrapper
-|- organizer_cli.py           # legacy wrapper
-|- organizer_core.py          # legacy re-export
-|- movie_detector.py          # legacy re-export
-|- duplicate_detector.py      # legacy re-export
-|- smart_presets.py           # legacy re-export
 |- build_executables.py
 |- requirements.txt
 |- README.md
