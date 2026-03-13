@@ -16,10 +16,16 @@ from typing import Dict, List, Tuple, Optional, Callable
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 from movie_detector import MovieDetector
+from duplicate_detector import DuplicateDetector
 
 # ─── Category Definitions ─────────────────────────────────────────────────────
 
 CATEGORIES: Dict[str, Dict] = {
+    "Duplicates": {
+        "extensions": [],
+        "icon": "🧬",
+        "color": "#6C5CE7",
+    },
     "WebSeries": {
         "extensions": [],
         "icon": "📺",
@@ -170,6 +176,7 @@ class Settings:
         "auto_mode": False,
         "schedule_enabled": False,
         "schedule_interval_minutes": 15,
+        "enable_duplicate_detection": False,
         "monitor_enabled": False,
         "enable_movie_detection": False,
         "enable_smart_media_detection": True,
@@ -178,7 +185,7 @@ class Settings:
         "category_folder_map": {},   # {"Audio": "Movies", "Videos": "Movies"}
         "category_conflict_policy": {},  # {"Documents": "skip"}
         "excluded_extensions": [],
-        "excluded_folders": ["WebSeries", "Movies", "Images", "Videos", "Audio", "Documents",
+        "excluded_folders": ["Duplicates", "WebSeries", "Movies", "Images", "Videos", "Audio", "Documents",
                               "Archives", "Code", "Executables", "Fonts", "Others"],
         "log_file": "fileorganizer.log",
         "history_file": "fileorganizer_history.json",
@@ -352,6 +359,7 @@ class FileOrganizer:
         self.history = HistoryManager()
         self.categorizer = Categorizer(self.settings.get("custom_rules", []))
         self.movie_detector = MovieDetector()
+        self.duplicate_detector = DuplicateDetector()
         self.progress_callback = progress_callback  # fn(current, total, message)
         self._monitor_observer: Optional[Observer] = None
         self._monitor_thread: Optional[threading.Thread] = None
@@ -439,6 +447,9 @@ class FileOrganizer:
             return plan
 
         sibling_paths = [e.path for e in entries]
+        duplicate_paths = set()
+        if bool(self.settings.get("enable_duplicate_detection", False)):
+            duplicate_paths = self.duplicate_detector.find_duplicates(sibling_paths)
 
         for entry in entries:
             ext = Path(entry.path).suffix.lower()
@@ -448,6 +459,10 @@ class FileOrganizer:
 
             decision = self.analyze_file(entry.path, sibling_video_paths=sibling_paths)
             category = decision.category
+            if entry.path in duplicate_paths:
+                category = "Duplicates"
+                decision.confidence = 98
+                decision.reasons.append("Detected duplicate content by file hash")
             target_folder = self._destination_folder_name(category)
             dest_dir = os.path.join(folder, target_folder)
             dest_path = os.path.join(dest_dir, entry.name)

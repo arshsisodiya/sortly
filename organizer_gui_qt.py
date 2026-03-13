@@ -475,6 +475,11 @@ class FileOrganizerQtApp(QMainWindow):
 
         sidebar_layout.addLayout(media_detection_row)
 
+        self.duplicate_detection_checkbox = QCheckBox("Duplicate finder before move")
+        self.duplicate_detection_checkbox.setChecked(bool(self.settings.get("enable_duplicate_detection", False)))
+        self.duplicate_detection_checkbox.stateChanged.connect(self._on_duplicate_detection_changed)
+        sidebar_layout.addWidget(self.duplicate_detection_checkbox)
+
         self.theme_toggle = QCheckBox("Dark theme")
         self.theme_toggle.setChecked(self._theme_mode == "dark")
         self.theme_toggle.stateChanged.connect(self._on_theme_toggled)
@@ -1102,6 +1107,11 @@ class FileOrganizerQtApp(QMainWindow):
             self._log("Smart media detection enabled (movie metadata unavailable; series detection still works)", "warning")
         else:
             self._log(f"Smart media detection set to: {enabled}")
+
+    def _on_duplicate_detection_changed(self, _state):
+        enabled = bool(self.duplicate_detection_checkbox.isChecked())
+        self.settings.set("enable_duplicate_detection", enabled)
+        self._log(f"Duplicate finder set to: {enabled}")
 
     def _add_monitor_folder(self):
         folder = QFileDialog.getExistingDirectory(self, "Select Folder to Monitor")
