@@ -1,9 +1,4 @@
-"""
-Build script for FileOrganizer executables (Windows)
-Run this on Windows with PyInstaller installed:
-    pip install pyinstaller watchdog PySide6
-  python build_executables.py
-"""
+"""Build script for Sortly executables on Windows."""
 
 import os
 import sys
@@ -35,16 +30,16 @@ def build_cli():
         sys.executable, "-m", "PyInstaller",
         "--onefile",
         "--console",
-        "--name", "fileorganizer-cli",
-        "--add-data", f"{BASE_DIR / 'organizer_core.py'}{os.pathsep}.",
+        "--name", "sortly-cli",
+        "--add-data", f"{BASE_DIR / 'assets'}{os.pathsep}assets",
         "--hidden-import", "watchdog.observers",
         "--hidden-import", "watchdog.observers.polling",
         "--hidden-import", "watchdog.events",
-        str(BASE_DIR / "organizer_cli.py"),
+        str(BASE_DIR / "sortly_cli.py"),
     ]
     result = subprocess.run(cmd, cwd=BASE_DIR)
     if result.returncode == 0:
-        print("  ✓  CLI executable built: dist/fileorganizer-cli.exe")
+        print("  ✓  CLI executable built: dist/sortly-cli.exe")
     else:
         print("  ✗  CLI build failed.")
     return result.returncode == 0
@@ -56,7 +51,7 @@ def build_gui():
 
     # Check for icon
     icon_flag = []
-    icon_path = BASE_DIR / "icon.ico"
+    icon_path = BASE_DIR / "assets" / "sortly_logos" / "ICO" / "sortly.ico"
     if icon_path.exists():
         icon_flag = ["--icon", str(icon_path)]
 
@@ -64,8 +59,8 @@ def build_gui():
         sys.executable, "-m", "PyInstaller",
         "--onefile",
         "--windowed",           # No console window for GUI
-        "--name", "fileorganizer-gui",
-        "--add-data", f"{BASE_DIR / 'organizer_core.py'}{os.pathsep}.",
+        "--name", "sortly-gui",
+        "--add-data", f"{BASE_DIR / 'assets'}{os.pathsep}assets",
         "--hidden-import", "watchdog.observers",
         "--hidden-import", "watchdog.observers.polling",
         "--hidden-import", "watchdog.events",
@@ -74,11 +69,11 @@ def build_gui():
         "--hidden-import", "PySide6.QtGui",
         "--hidden-import", "PySide6.QtWidgets",
         *icon_flag,
-        str(BASE_DIR / "organizer_gui_qt.py"),
+        str(BASE_DIR / "sortly_gui_qt.py"),
     ]
     result = subprocess.run(cmd, cwd=BASE_DIR)
     if result.returncode == 0:
-        print("  ✓  GUI executable built: dist/fileorganizer-gui.exe")
+        print("  ✓  GUI executable built: dist/sortly-gui.exe")
     else:
         print("  ✗  GUI build failed.")
     return result.returncode == 0
@@ -86,7 +81,7 @@ def build_gui():
 
 def main():
     print("=" * 60)
-    print("  FileOrganizer — Build System")
+    print("  Sortly — Build System")
     print("=" * 60)
 
     # Check PyInstaller
@@ -117,11 +112,11 @@ def main():
     if ok_cli and ok_gui:
         print("  ✓  Build complete!")
         print(f"\n  Output files:")
-        print(f"    dist/fileorganizer-cli.exe  — Command-line tool")
-        print(f"    dist/fileorganizer-gui.exe  — Desktop application")
+        print(f"    dist/sortly-cli.exe  — Command-line tool")
+        print(f"    dist/sortly-gui.exe  — Desktop application")
         print(f"\n  Usage:")
-        print(f"    fileorganizer-cli.exe organize C:\\Users\\You\\Downloads --auto")
-        print(f"    fileorganizer-cli.exe --help")
+        print(f"    sortly-cli.exe organize C:\\Users\\You\\Downloads --auto")
+        print(f"    sortly-cli.exe --help")
     else:
         print("  ⚠  Build completed with errors.")
     print("=" * 60)

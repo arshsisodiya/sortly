@@ -1,4 +1,4 @@
-"""Legacy Qt entrypoint. Use sortly_gui_qt.py instead."""
+"""Sortly Qt GUI entrypoint."""
 
 from sortly.gui_qt import main
 

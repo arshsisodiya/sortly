@@ -1,4 +1,4 @@
-"""Legacy CLI entrypoint. Use sortly_cli.py instead."""
+"""Sortly CLI entrypoint."""
 
 from sortly.cli import main
 
