@@ -3,9 +3,9 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Sortly — Chaos in. Order out.</title>
+<title>Sortly — Every file. Exactly where it belongs.</title>
 <meta name="description" content="Sortly is a free, open-source Windows file organizer that automatically sorts your folders by file type. Smart. Fast. Secure."/>
-<meta property="og:title" content="Sortly — Chaos in. Order out."/>
+<meta property="og:title" content="Sortly — Every file. Exactly where it belongs."/>
 <meta property="og:description" content="Free, open-source Windows file organizer. Sorts your files automatically."/>
 <meta property="og:type" content="website"/>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
@@ -153,7 +153,12 @@ nav{
   align-items:center;gap:80px;
 }
 .hero-eyebrow{margin-bottom:24px}
-.hero-title{margin-bottom:20px}
+.hero-title{
+  margin-bottom:20px;
+  font-size:clamp(2.4rem,5.8vw,4.8rem);
+  line-height:1.05;
+  max-width:11ch;
+}
 .hero-title em{font-style:normal;color:var(--amber)}
 .hero-sub{
   font-size:1.15rem;color:var(--text2);
@@ -844,7 +849,7 @@ footer{
     <a href="#security">Security</a>
     <a href="https://github.com/arshsisodiya" target="_blank">GitHub</a>
   </div>
-  <a href="#download" class="nav-cta">Download Free</a>
+  <a href="https://github.com/arshsisodiya/sortly/releases/latest" class="nav-cta" id="nav-dl-btn">Download Free</a>
 </nav>
 
 <!-- ── Hero ───────────────────────────────────────────────── -->
@@ -857,7 +862,7 @@ footer{
           <span class="tag"><span class="dot"></span>Free & Open Source</span>
         </div>
         <h1 class="hero-title">
-          Chaos in.<br/><em>Order out.</em>
+          Every file.<br/><em>Exactly where it belongs.</em>
         </h1>
         <p class="hero-sub">
           Sortly watches your Windows folders and automatically sorts every file into the right category — instantly, silently, and without touching anything it shouldn't.
@@ -1341,7 +1346,7 @@ footer{
           </svg>
         </div>
         <div class="dl-name">Sortly</div>
-        <div class="dl-tagline">Chaos in. Order out.</div>
+        <div class="dl-tagline">Every file. Exactly where it belongs.</div>
 
         <div class="dl-version">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
@@ -1458,11 +1463,13 @@ async function fetchRelease() {
 
     const btnSetup = document.getElementById('btn-setup');
     const btnPortable = document.getElementById('btn-portable');
+    const navDl = document.getElementById('nav-dl-btn');
     const heroDl = document.getElementById('hero-dl-btn');
     const dlLink = document.getElementById('link-releases');
 
     if (btnSetup) btnSetup.href = setupUrl;
     if (btnPortable) btnPortable.href = portableUrl;
+    if (navDl) navDl.href = setupUrl;
     if (heroDl) heroDl.href = setupUrl;
     if (dlLink) dlLink.href = `https://github.com/${OWNER}/${REPO}/releases`;
 
@@ -1474,6 +1481,9 @@ async function fetchRelease() {
     });
     const sizeEl = document.getElementById('dl-size');
     if (sizeEl) sizeEl.textContent = '';
+
+    const navDl = document.getElementById('nav-dl-btn');
+    if (navDl) navDl.href = `https://github.com/${OWNER}/${REPO}/releases/latest`;
   }
 }
 fetchRelease();
