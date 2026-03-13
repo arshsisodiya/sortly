@@ -57,6 +57,7 @@ class FileOrganizerQtApp(QMainWindow):
         self._movie_detector = MovieDetector()
         self._current_plan: Optional[OrganizationPlan] = None
         self._current_folder = ""
+        self._notifications_unread = 0
         self._theme_mode = str(self.settings.get("ui_theme", "light")).lower()
         if self._theme_mode not in {"light", "dark"}:
             self._theme_mode = "light"
@@ -660,12 +661,15 @@ class FileOrganizerQtApp(QMainWindow):
         self.preview_tab = self._build_preview_tab()
         self.rules_tab = self._build_rules_tab()
         self.history_tab = self._build_history_tab()
+        self.notifications_tab = self._build_notifications_tab()
         self.log_tab = self._build_log_tab()
 
         self.tabs.addTab(self.preview_tab, "Preview")
         self.tabs.addTab(self.rules_tab, "Custom Rules")
         self.tabs.addTab(self.history_tab, "History")
+        self.tabs.addTab(self.notifications_tab, "Notifications")
         self.tabs.addTab(self.log_tab, "Activity Log")
+        self.tabs.currentChanged.connect(self._on_tab_changed)
 
         splitter.addWidget(sidebar)
         splitter.addWidget(content)
@@ -886,6 +890,59 @@ class FileOrganizerQtApp(QMainWindow):
         clear_btn.clicked.connect(self.log_text.clear)
         layout.addWidget(clear_btn)
         return tab
+
+    def _build_notifications_tab(self) -> QWidget:
+        tab = QWidget()
+        layout = QVBoxLayout(tab)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(10)
+
+        head = QHBoxLayout()
+        layout.addLayout(head)
+
+        self.notifications_status = QLabel("Notifications (0 unread)")
+        self.notifications_status.setObjectName("Muted")
+        head.addWidget(self.notifications_status, 1)
+
+        mark_read_btn = QPushButton("Mark all as read")
+        mark_read_btn.clicked.connect(self._mark_notifications_read)
+        head.addWidget(mark_read_btn)
+
+        clear_btn = QPushButton("Clear")
+        clear_btn.clicked.connect(self._clear_notifications)
+        head.addWidget(clear_btn)
+
+        self.notifications_list = QListWidget()
+        layout.addWidget(self.notifications_list, 1)
+        return tab
+
+    def _on_tab_changed(self, index: int):
+        if self.tabs.tabText(index) == "Notifications":
+            self._mark_notifications_read()
+
+    def _add_notification(self, message: str):
+        self.notifications_list.insertItem(0, message)
+        self._notifications_unread += 1
+        self._update_notifications_badge()
+
+    def _mark_notifications_read(self):
+        self._notifications_unread = 0
+        self._update_notifications_badge()
+
+    def _clear_notifications(self):
+        self.notifications_list.clear()
+        self._notifications_unread = 0
+        self._update_notifications_badge()
+
+    def _update_notifications_badge(self):
+        self.notifications_status.setText(f"Notifications ({self._notifications_unread} unread)")
+        for i in range(self.tabs.count()):
+            if self.tabs.tabText(i).startswith("Notifications"):
+                if self._notifications_unread:
+                    self.tabs.setTabText(i, f"Notifications ({self._notifications_unread})")
+                else:
+                    self.tabs.setTabText(i, "Notifications")
+                break
 
     def _pick_folder(self):
         folder = QFileDialog.getExistingDirectory(self, "Select Folder to Organize")
@@ -1360,6 +1417,7 @@ class FileOrganizerQtApp(QMainWindow):
             "error": "[ERR]",
         }.get(level, "[INFO]")
         self.log_text.append(f"{prefix} {message}")
+        self._add_notification(f"{prefix} {message}")
 
     def closeEvent(self, event: QCloseEvent):
         if self.organizer.is_monitoring:
