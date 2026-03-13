@@ -64,6 +64,85 @@ def build_cli():
     return result.returncode == 0
 
 
+# Qt modules definitely not used by a PySide6 QtWidgets-only app.
+# Excluding them shaves ~40-80 MB off the uncompressed output.
+_QT_EXCLUDE_MODULES = [
+    "PySide6.QtWebEngine",
+    "PySide6.QtWebEngineWidgets",
+    "PySide6.QtWebEngineCore",
+    "PySide6.QtMultimedia",
+    "PySide6.QtMultimediaWidgets",
+    "PySide6.Qt3DCore",
+    "PySide6.Qt3DRender",
+    "PySide6.Qt3DInput",
+    "PySide6.Qt3DLogic",
+    "PySide6.Qt3DAnimation",
+    "PySide6.Qt3DExtras",
+    "PySide6.QtQml",
+    "PySide6.QtQuick",
+    "PySide6.QtQuickWidgets",
+    "PySide6.QtQuickControls2",
+    "PySide6.QtCharts",
+    "PySide6.QtDataVisualization",
+    "PySide6.QtBluetooth",
+    "PySide6.QtLocation",
+    "PySide6.QtPositioning",
+    "PySide6.QtSensors",
+    "PySide6.QtSerialPort",
+    "PySide6.QtSql",
+    "PySide6.QtTest",
+    "PySide6.QtPdf",
+    "PySide6.QtPdfWidgets",
+    "PySide6.QtHelp",
+    "PySide6.QtDesigner",
+    "PySide6.QtRemoteObjects",
+    "PySide6.QtStateMachine",
+    "PySide6.QtNfc",
+    "PySide6.QtSpatialAudio",
+    "PySide6.QtConcurrent",
+]
+
+# Qt6 DLL name prefixes to delete from the onedir output after build.
+# These correspond to the modules above and are safe to remove for a
+# plain QtWidgets app.
+_QT_DLL_PREFIXES_TO_REMOVE = (
+    "Qt6WebEngine",
+    "Qt6Multimedia",
+    "Qt63D",
+    "Qt6Quick",
+    "Qt6Qml",
+    "Qt6Charts",
+    "Qt6DataVisualization",
+    "Qt6Bluetooth",
+    "Qt6Location",
+    "Qt6Positioning",
+    "Qt6Sensors",
+    "Qt6SerialPort",
+    "Qt6Sql",
+    "Qt6Test",
+    "Qt6Pdf",
+    "Qt6Help",
+    "Qt6Designer",
+    "Qt6RemoteObjects",
+    "Qt6StateMachine",
+    "Qt6Nfc",
+    "Qt6SpatialAudio",
+    "Qt6Concurrent",
+)
+
+
+def _strip_unused_qt_dlls(gui_dist_dir: Path) -> None:
+    """Delete Qt DLLs for modules the app does not use."""
+    removed, saved = 0, 0
+    for dll in list(gui_dist_dir.rglob("*.dll")):
+        if dll.name.startswith(_QT_DLL_PREFIXES_TO_REMOVE):
+            saved += dll.stat().st_size
+            dll.unlink()
+            removed += 1
+    if removed:
+        print(f"  Stripped {removed} unused Qt DLLs ({saved / 1_048_576:.1f} MB freed)")
+
+
 def build_gui():
     """Build the GUI executable (onedir for fast startup and Inno Setup packaging)."""
     print("\n[*] Building GUI executable...")
@@ -73,6 +152,10 @@ def build_gui():
     icon_path = BASE_DIR / "assets" / "sortly_logos" / "ICO" / "sortly.ico"
     if icon_path.exists():
         icon_flag = ["--icon", str(icon_path)]
+
+    exclude_flags = []
+    for mod in _QT_EXCLUDE_MODULES:
+        exclude_flags += ["--exclude-module", mod]
 
     cmd = [
         sys.executable, "-m", "PyInstaller",
@@ -88,11 +171,13 @@ def build_gui():
         "--hidden-import", "PySide6.QtGui",
         "--hidden-import", "PySide6.QtWidgets",
         "--collect-all", "pymediainfo",
+        *exclude_flags,
         *icon_flag,
         str(BASE_DIR / "sortly_gui_qt.py"),
     ]
     result = subprocess.run(cmd, cwd=BASE_DIR)
     if result.returncode == 0:
+        _strip_unused_qt_dlls(DIST_DIR / "sortly-gui")
         print("  OK  GUI built: dist/sortly-gui/sortly-gui.exe")
     else:
         print("  ERR GUI build failed.")

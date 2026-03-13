@@ -41,6 +41,13 @@ OutputDir=..\dist
 OutputBaseFilename=SortlySetup-{#MyAppVersion}
 SetupIconFile=..\assets\sortly_logos\ICO\sortly.ico
 
+; Wizard images (Inno Setup 6 supports PNG natively)
+; WizardImageFile   : tall left-panel image shown on all wizard pages
+; WizardSmallImageFile : small top-right image on welcome/finish pages
+WizardImageFile=..\assets\sortly_logos\PNG\transparent\sortly_transparent_1024x1024.png
+WizardSmallImageFile=..\assets\sortly_logos\PNG\dark\sortly_dark_64x64.png
+WizardImageStretch=yes
+
 ; Compression
 Compression=lzma2/ultra64
 SolidCompression=yes
