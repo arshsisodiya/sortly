@@ -9,13 +9,84 @@ import os
 import sys
 import subprocess
 import shutil
+import urllib.request
+import zipfile
 from pathlib import Path
 
 BASE_DIR = Path(__file__).parent.resolve()
 DIST_DIR = BASE_DIR / "dist"
 BUILD_DIR = BASE_DIR / "build"
+UPX_DIR  = BASE_DIR / "tools" / "upx"
 
 SKIP_INSTALLER = "--skip-installer" in sys.argv
+
+# UPX release to download when not found in PATH or tools/upx/
+_UPX_VERSION = "4.2.4"
+_UPX_DOWNLOAD_URL = (
+    f"https://github.com/upx/upx/releases/download/v{_UPX_VERSION}/"
+    f"upx-{_UPX_VERSION}-win64.zip"
+)
+
+# Qt DLLs that have CFG (Control Flow Guard) and cannot be UPX-compressed.
+# PyInstaller already skips them automatically, but listing them here lets us
+# pass --upx-exclude so PyInstaller doesn't even try and waste time.
+_UPX_EXCLUDE_DLLS = [
+    "MSVCP140.dll",
+    "MSVCP140_1.dll",
+    "VCRUNTIME140.dll",
+    "VCRUNTIME140_1.dll",
+    "ucrtbase.dll",
+    "python311.dll",
+    "python3.dll",
+    "MediaInfo.dll",
+    "Qt6Core.dll",
+    "Qt6Gui.dll",
+    "Qt6Widgets.dll",
+    "Qt6Network.dll",
+    "Qt6OpenGL.dll",
+    "Qt6DBus.dll",
+    "Qt6PrintSupport.dll",
+    "Qt6Svg.dll",
+    "shiboken6.abi3.dll",
+    "PySide6.abi3.dll",
+]
+
+
+def _find_or_download_upx() -> Path | None:
+    """Return the directory containing upx.exe, downloading it if needed."""
+    # 1. Already extracted into tools/upx/
+    local_exe = UPX_DIR / "upx.exe"
+    if local_exe.exists():
+        print(f"  UPX found: {local_exe}")
+        return UPX_DIR
+
+    # 2. UPX is on the system PATH
+    path_upx = shutil.which("upx")
+    if path_upx:
+        print(f"  UPX found on PATH: {path_upx}")
+        return Path(path_upx).parent
+
+    # 3. Download from GitHub releases
+    print(f"  UPX not found – downloading v{_UPX_VERSION} from GitHub...")
+    zip_path = BASE_DIR / "tools" / f"upx-{_UPX_VERSION}-win64.zip"
+    zip_path.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        urllib.request.urlretrieve(_UPX_DOWNLOAD_URL, zip_path)
+        with zipfile.ZipFile(zip_path, "r") as zf:
+            # The zip contains a single folder upx-X.Y.Z-win64/
+            for member in zf.namelist():
+                if member.endswith("upx.exe"):
+                    zf.extract(member, zip_path.parent)
+                    extracted = zip_path.parent / member
+                    UPX_DIR.mkdir(parents=True, exist_ok=True)
+                    extracted.rename(UPX_DIR / "upx.exe")
+                    break
+        zip_path.unlink(missing_ok=True)
+        print(f"  UPX downloaded: {UPX_DIR / 'upx.exe'}")
+        return UPX_DIR
+    except Exception as exc:
+        print(f"  WARN Could not download UPX ({exc}) – building without compression.")
+        return None
 
 
 def _get_version() -> str:
@@ -45,6 +116,13 @@ def clean():
 def build_cli():
     """Build the CLI executable."""
     print("\n[*] Building CLI executable...")
+
+    upx_dir = _find_or_download_upx()
+    upx_flags = ["--upx-dir", str(upx_dir)] if upx_dir else ["--noupx"]
+    upx_exclude_flags = []
+    for dll in _UPX_EXCLUDE_DLLS:
+        upx_exclude_flags += ["--upx-exclude", dll]
+
     cmd = [
         sys.executable, "-m", "PyInstaller",
         "--onefile",
@@ -54,6 +132,8 @@ def build_cli():
         "--hidden-import", "watchdog.observers",
         "--hidden-import", "watchdog.observers.polling",
         "--hidden-import", "watchdog.events",
+        *upx_flags,
+        *upx_exclude_flags,
         str(BASE_DIR / "sortly_cli.py"),
     ]
     result = subprocess.run(cmd, cwd=BASE_DIR)
@@ -147,6 +227,12 @@ def build_gui():
     """Build the GUI executable (onedir for fast startup and Inno Setup packaging)."""
     print("\n[*] Building GUI executable...")
 
+    upx_dir = _find_or_download_upx()
+    upx_flags = ["--upx-dir", str(upx_dir)] if upx_dir else ["--noupx"]
+    upx_exclude_flags = []
+    for dll in _UPX_EXCLUDE_DLLS:
+        upx_exclude_flags += ["--upx-exclude", dll]
+
     # Check for icon
     icon_flag = []
     icon_path = BASE_DIR / "assets" / "sortly_logos" / "ICO" / "sortly.ico"
@@ -172,6 +258,8 @@ def build_gui():
         "--hidden-import", "PySide6.QtWidgets",
         "--collect-all", "pymediainfo",
         *exclude_flags,
+        *upx_flags,
+        *upx_exclude_flags,
         *icon_flag,
         str(BASE_DIR / "sortly_gui_qt.py"),
     ]

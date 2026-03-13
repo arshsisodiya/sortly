@@ -35,6 +35,10 @@ jobs:
       - name: Install Python dependencies
         run: pip install -r requirements.txt pyinstaller
 
+      # Install UPX so PyInstaller can compress executables in CI
+      - name: Install UPX
+        run: choco install upx --yes --no-progress
+
       # --------------------------------------------------------
       # 3. Resolve version from tag (strip leading 'v')
       # --------------------------------------------------------
