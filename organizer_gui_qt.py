@@ -6,6 +6,7 @@ Native-feeling Windows desktop interface for the smart file organizer.
 
 import os
 import sys
+import json
 from pathlib import Path
 from typing import Optional
 
@@ -385,19 +386,54 @@ class FileOrganizerQtApp(QMainWindow):
         for key, value in preset.items():
             self.settings.set(key, value)
 
+        self._sync_ui_from_settings()
+        self._log(f"Applied smart preset: {name}", "success")
+
+    def _sync_ui_from_settings(self):
         self.organizer.settings = self.settings
         self.organizer.categorizer.custom_rules = self.settings.get("custom_rules", [])
-        self._refresh_rules_list()
-        self._refresh_category_mapping_list()
-        self._refresh_conflict_policy_list()
         self.media_detection_checkbox.setChecked(bool(self.settings.get("enable_smart_media_detection", True)))
         self.duplicate_detection_checkbox.setChecked(bool(self.settings.get("enable_duplicate_detection", False)))
         self.protected_files_checkbox.setChecked(bool(self.settings.get("protect_recent_files", False)))
+        self.schedule_checkbox.setChecked(bool(self.settings.get("schedule_enabled", False)))
+
         protected_value = str(self.settings.get("protect_recent_minutes", 30))
         protected_index = self.protected_minutes.findText(protected_value)
         if protected_index >= 0:
             self.protected_minutes.setCurrentIndex(protected_index)
-        self._log(f"Applied smart preset: {name}", "success")
+
+        schedule_value = str(self.settings.get("schedule_interval_minutes", 15))
+        schedule_index = self.schedule_interval.findText(schedule_value)
+        if schedule_index >= 0:
+            self.schedule_interval.setCurrentIndex(schedule_index)
+
+        self._refresh_rules_list()
+        self._refresh_category_mapping_list()
+        self._refresh_conflict_policy_list()
+        self._update_schedule_timer()
+
+    def _export_config(self):
+        path, _ = QFileDialog.getSaveFileName(self, "Export Configuration", "fileorganizer-config.json", "JSON Files (*.json)")
+        if not path:
+            return
+        with open(path, "w", encoding="utf-8") as handle:
+            json.dump(self.settings._data, handle, indent=2)
+        self._log(f"Configuration exported: {path}", "success")
+
+    def _import_config(self):
+        path, _ = QFileDialog.getOpenFileName(self, "Import Configuration", "", "JSON Files (*.json)")
+        if not path:
+            return
+        try:
+            with open(path, "r", encoding="utf-8") as handle:
+                data = json.load(handle)
+        except Exception as exc:
+            self._show_warning("Import failed", f"Could not read configuration.\n\n{exc}")
+            return
+        for key, value in data.items():
+            self.settings.set(key, value)
+        self._sync_ui_from_settings()
+        self._log(f"Configuration imported: {path}", "success")
 
     def _update_schedule_timer(self):
         enabled = bool(self.settings.get("schedule_enabled", False))
@@ -525,6 +561,15 @@ class FileOrganizerQtApp(QMainWindow):
         self.theme_toggle.setChecked(self._theme_mode == "dark")
         self.theme_toggle.stateChanged.connect(self._on_theme_toggled)
         sidebar_layout.addWidget(self.theme_toggle)
+
+        config_row = QHBoxLayout()
+        sidebar_layout.addLayout(config_row)
+        export_btn = QPushButton("Export Config")
+        export_btn.clicked.connect(self._export_config)
+        config_row.addWidget(export_btn)
+        import_btn = QPushButton("Import Config")
+        import_btn.clicked.connect(self._import_config)
+        config_row.addWidget(import_btn)
 
         preset_label = QLabel("Smart Presets")
         preset_label.setStyleSheet("font-weight: 600;")
