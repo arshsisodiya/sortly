@@ -480,6 +480,24 @@ class FileOrganizerQtApp(QMainWindow):
         self.duplicate_detection_checkbox.stateChanged.connect(self._on_duplicate_detection_changed)
         sidebar_layout.addWidget(self.duplicate_detection_checkbox)
 
+        self.protected_files_checkbox = QCheckBox("Protected recent files")
+        self.protected_files_checkbox.setChecked(bool(self.settings.get("protect_recent_files", False)))
+        self.protected_files_checkbox.stateChanged.connect(self._on_protected_files_changed)
+        sidebar_layout.addWidget(self.protected_files_checkbox)
+
+        protected_row = QHBoxLayout()
+        sidebar_layout.addLayout(protected_row)
+        protected_row.addWidget(QLabel("Ignore files newer than"))
+        self.protected_minutes = QComboBox()
+        self.protected_minutes.addItems(["5", "10", "30", "60", "180"])
+        current_protected = str(self.settings.get("protect_recent_minutes", 30))
+        protected_index = self.protected_minutes.findText(current_protected)
+        if protected_index >= 0:
+            self.protected_minutes.setCurrentIndex(protected_index)
+        self.protected_minutes.currentTextChanged.connect(self._on_protected_files_changed)
+        protected_row.addWidget(self.protected_minutes)
+        protected_row.addWidget(QLabel("min"))
+
         self.theme_toggle = QCheckBox("Dark theme")
         self.theme_toggle.setChecked(self._theme_mode == "dark")
         self.theme_toggle.stateChanged.connect(self._on_theme_toggled)
@@ -1112,6 +1130,13 @@ class FileOrganizerQtApp(QMainWindow):
         enabled = bool(self.duplicate_detection_checkbox.isChecked())
         self.settings.set("enable_duplicate_detection", enabled)
         self._log(f"Duplicate finder set to: {enabled}")
+
+    def _on_protected_files_changed(self, _state=None):
+        enabled = bool(self.protected_files_checkbox.isChecked())
+        minutes = int(self.protected_minutes.currentText())
+        self.settings.set("protect_recent_files", enabled)
+        self.settings.set("protect_recent_minutes", minutes)
+        self._log(f"Protected recent files set to: {enabled} ({minutes} minute(s))")
 
     def _add_monitor_folder(self):
         folder = QFileDialog.getExistingDirectory(self, "Select Folder to Monitor")

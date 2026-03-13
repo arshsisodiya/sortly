@@ -177,6 +177,8 @@ class Settings:
         "schedule_enabled": False,
         "schedule_interval_minutes": 15,
         "enable_duplicate_detection": False,
+        "protect_recent_files": False,
+        "protect_recent_minutes": 30,
         "monitor_enabled": False,
         "enable_movie_detection": False,
         "enable_smart_media_detection": True,
@@ -420,6 +422,17 @@ class FileOrganizer:
             return "rename"
         return policy
 
+    def _is_protected_recent_file(self, file_path: str) -> bool:
+        if not bool(self.settings.get("protect_recent_files", False)):
+            return False
+        minutes = int(self.settings.get("protect_recent_minutes", 30))
+        try:
+            modified_time = os.path.getmtime(file_path)
+        except Exception:
+            return False
+        age_seconds = time.time() - modified_time
+        return age_seconds < max(1, minutes) * 60
+
     def _is_smart_media_detection_enabled(self) -> bool:
         if self.settings.get("enable_smart_media_detection", None) is not None:
             return bool(self.settings.get("enable_smart_media_detection", True))
@@ -455,6 +468,10 @@ class FileOrganizer:
             ext = Path(entry.path).suffix.lower()
             if ext in excluded_exts:
                 plan.add_skip(entry.path, f"Excluded extension: {ext}")
+                continue
+
+            if self._is_protected_recent_file(entry.path):
+                plan.add_skip(entry.path, "Protected recent file")
                 continue
 
             decision = self.analyze_file(entry.path, sibling_video_paths=sibling_paths)
