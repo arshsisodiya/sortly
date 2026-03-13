@@ -1,0 +1,101 @@
+name: Build & Release
+
+# Trigger: any tag matching vX.Y.Z or vX.Y.Z-suffix (e.g. v1.0.0, v1.2.0-beta.1)
+on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+      - 'v[0-9]+.[0-9]+.[0-9]+-*'
+
+# Required for creating GitHub Releases and uploading assets
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    name: Build & Release
+    runs-on: windows-latest
+
+    steps:
+      # --------------------------------------------------------
+      # 1. Checkout
+      # --------------------------------------------------------
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # --------------------------------------------------------
+      # 2. Python
+      # --------------------------------------------------------
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install Python dependencies
+        run: pip install -r requirements.txt pyinstaller
+
+      # --------------------------------------------------------
+      # 3. Resolve version from tag (strip leading 'v')
+      # --------------------------------------------------------
+      - name: Extract version from tag
+        id: version
+        shell: pwsh
+        run: |
+          $version = "${{ github.ref_name }}".TrimStart('v')
+          "VERSION=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          Write-Host "Building version: $version"
+
+      # Export as env var so build_executables.py _get_version() picks it up
+      - name: Set APP_VERSION environment variable
+        shell: pwsh
+        run: '"APP_VERSION=${{ steps.version.outputs.VERSION }}" | Out-File -FilePath $env:GITHUB_ENV -Append'
+
+      # --------------------------------------------------------
+      # 4. PyInstaller — CLI (onefile) + GUI (onedir)
+      # --------------------------------------------------------
+      - name: Build PyInstaller executables
+        run: python build_executables.py --skip-installer
+
+      # --------------------------------------------------------
+      # 5. Inno Setup — build the Windows installer
+      # --------------------------------------------------------
+      - name: Install Inno Setup 6
+        run: choco install innosetup --yes --no-progress
+
+      - name: Compile installer with Inno Setup
+        shell: pwsh
+        run: |
+          $version = "${{ steps.version.outputs.VERSION }}"
+          $iscc   = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
+          Write-Host "Compiling SortlySetup-$version.exe …"
+          & $iscc "/DMyAppVersion=$version" "installer\sortly.iss"
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "Inno Setup compilation failed (exit $LASTEXITCODE)"
+            exit $LASTEXITCODE
+          }
+
+      # --------------------------------------------------------
+      # 6. Show artifacts
+      # --------------------------------------------------------
+      - name: List release artifacts
+        shell: pwsh
+        run: |
+          Get-ChildItem dist\ -Filter "*.exe" -Recurse |
+            Where-Object { -not $_.PSIsContainer } |
+            Format-Table Name, @{N='Size (MB)';E={[math]::Round($_.Length/1MB,2)}}
+
+      # --------------------------------------------------------
+      # 7. Publish GitHub Release
+      # --------------------------------------------------------
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: Sortly ${{ github.ref_name }}
+          draft: false
+          # Tags containing '-' (e.g. v1.0.0-beta.1) are pre-releases
+          prerelease: ${{ contains(github.ref_name, '-') }}
+          generate_release_notes: true
+          files: |
+            dist/SortlySetup-${{ steps.version.outputs.VERSION }}.exe
+            dist/sortly-cli.exe
