@@ -1,0 +1,4 @@
+watchdog>=3.0.0
+pyinstaller>=5.0.0
+PySide6>=6.7.0
+pymediainfo>=6.1.0
