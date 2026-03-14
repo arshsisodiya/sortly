@@ -36,6 +36,8 @@ from PySide6.QtWidgets import (
     QTableWidget,
     QTableWidgetItem,
     QTextEdit,
+    QSystemTrayIcon,
+    QMenu,
     QToolButton,
     QVBoxLayout,
     QWidget,
@@ -77,8 +79,13 @@ class MonitorBridge(QObject):
 
 
 class FileOrganizerQtApp(QMainWindow):
-    def __init__(self):
+    def __init__(self, start_in_background: bool = False):
         super().__init__()
+
+        self._start_in_background = bool(start_in_background)
+        self._quitting_from_tray = False
+        self._tray_close_tip_shown = False
+        self._tray_icon: Optional[QSystemTrayIcon] = None
 
         self.settings = Settings()
         self.organizer = FileOrganizer(settings=self.settings)
@@ -105,6 +112,7 @@ class FileOrganizerQtApp(QMainWindow):
 
         self._apply_windows_base_style()
         self._build_ui()
+        self._setup_tray_icon()
         self._set_theme(self._theme_mode, persist=False)
         self._update_schedule_timer()
         self._refresh_history_label()
@@ -116,13 +124,13 @@ class FileOrganizerQtApp(QMainWindow):
 
     def _autostart_command(self) -> str:
         if getattr(sys, "frozen", False):
-            return f'"{Path(sys.executable)}"'
+            return f'"{Path(sys.executable)}" --background'
 
         script_path = Path(__file__).resolve().parents[1] / "sortly_gui_qt.py"
         python_exe = Path(sys.executable)
         pythonw_exe = python_exe.with_name("pythonw.exe")
         launcher = pythonw_exe if pythonw_exe.exists() else python_exe
-        return f'"{launcher}" "{script_path}"'
+        return f'"{launcher}" "{script_path}" --background'
 
     def _set_windows_autostart(self, enable: bool) -> tuple[bool, str]:
         if os.name != "nt" or winreg is None:
@@ -1642,6 +1650,70 @@ class FileOrganizerQtApp(QMainWindow):
         if hasattr(self, "history_table"):
             self._refresh_history_tab()
 
+    def _setup_tray_icon(self):
+        if not QSystemTrayIcon.isSystemTrayAvailable():
+            return
+
+        icon = self.windowIcon()
+        if icon.isNull():
+            logo_path = _find_logo_path()
+            if logo_path:
+                icon = QIcon(str(logo_path))
+
+        tray = QSystemTrayIcon(icon, self)
+        tray.setToolTip("Sortly")
+
+        menu = QMenu(self)
+        open_action = QAction("Open Sortly", self)
+        hide_action = QAction("Hide to Tray", self)
+        quit_action = QAction("Quit Sortly", self)
+
+        open_action.triggered.connect(self._restore_from_tray)
+        hide_action.triggered.connect(lambda: self._hide_to_tray(notify=False))
+        quit_action.triggered.connect(self._quit_from_tray)
+
+        menu.addAction(open_action)
+        menu.addAction(hide_action)
+        menu.addSeparator()
+        menu.addAction(quit_action)
+
+        tray.setContextMenu(menu)
+        tray.activated.connect(self._on_tray_activated)
+        tray.show()
+        self._tray_icon = tray
+
+        if self._start_in_background:
+            QTimer.singleShot(700, lambda: self._hide_to_tray(notify=False))
+
+    def _on_tray_activated(self, reason):
+        if reason in (
+            QSystemTrayIcon.ActivationReason.Trigger,
+            QSystemTrayIcon.ActivationReason.DoubleClick,
+        ):
+            if self.isVisible() and not self.isMinimized():
+                self._hide_to_tray(notify=False)
+            else:
+                self._restore_from_tray()
+
+    def _restore_from_tray(self):
+        self.showNormal()
+        self.raise_()
+        self.activateWindow()
+
+    def _hide_to_tray(self, notify: bool = True):
+        self.hide()
+        if notify and self._tray_icon is not None:
+            self._tray_icon.showMessage(
+                "Sortly",
+                "Sortly is still running in the background. Use the tray icon to open it.",
+                QSystemTrayIcon.MessageIcon.Information,
+                3000,
+            )
+
+    def _quit_from_tray(self):
+        self._quitting_from_tray = True
+        self.close()
+
     def _log(self, message: str, level: str = "info"):
         prefix = {
             "info": "[INFO]",
@@ -1653,13 +1725,32 @@ class FileOrganizerQtApp(QMainWindow):
         self._add_notification(f"{prefix} {message}")
 
     def closeEvent(self, event: QCloseEvent):
+        if self._quitting_from_tray:
+            if self.organizer.is_monitoring:
+                self.organizer.stop_monitoring()
+            if self._tray_icon is not None:
+                self._tray_icon.hide()
+            event.accept()
+            return
+
+        if self._tray_icon is not None and self._tray_icon.isVisible():
+            event.ignore()
+            self._hide_to_tray(notify=not self._tray_close_tip_shown)
+            self._tray_close_tip_shown = True
+            return
+
         if self.organizer.is_monitoring:
             self.organizer.stop_monitoring()
         event.accept()
 
 
 def main():
+    background_mode = "--background" in sys.argv
+
     app = QApplication(sys.argv)
+    if background_mode:
+        app.setQuitOnLastWindowClosed(False)
+
     app.setApplicationName("Sortly")
     app.setApplicationDisplayName("Sortly")
     app.setOrganizationName("Arsh Sisodiya")
@@ -1667,8 +1758,11 @@ def main():
     logo_path = _find_logo_path()
     if logo_path:
         app.setWindowIcon(QIcon(str(logo_path)))
-    window = FileOrganizerQtApp()
-    window.show()
+    window = FileOrganizerQtApp(start_in_background=background_mode)
+    if background_mode:
+        window.hide()
+    else:
+        window.show()
     sys.exit(app.exec())
 
 

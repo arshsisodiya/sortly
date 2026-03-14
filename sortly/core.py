@@ -381,6 +381,8 @@ class FileOrganizer:
         self.progress_callback = progress_callback  # fn(current, total, message)
         self._monitor_observer: Optional[Observer] = None
         self._monitor_thread: Optional[threading.Thread] = None
+        self._monitor_stop_event: Optional[threading.Event] = None
+        self._monitored_folders: List[str] = []
 
     def _emit_progress(self, current: int, total: int, message: str = ""):
         if self.progress_callback:
@@ -647,22 +649,70 @@ class FileOrganizer:
         if self._monitor_observer:
             self.stop_monitoring()
 
+        valid_folders = [folder for folder in folders if os.path.isdir(folder)]
+        self._monitored_folders = valid_folders
+
         self._monitor_observer = Observer()
         handler = FolderEventHandler(self, callback)
 
-        for folder in folders:
-            if os.path.isdir(folder):
-                self._monitor_observer.schedule(handler, folder, recursive=False)
-                self.logger.info(f"Monitoring: {folder}")
+        for folder in valid_folders:
+            self._monitor_observer.schedule(handler, folder, recursive=False)
+            self.logger.info(f"Monitoring: {folder}")
 
         self._monitor_observer.start()
 
+        self._monitor_stop_event = threading.Event()
+        self._monitor_thread = threading.Thread(
+            target=self._monitor_sweep_loop,
+            args=(callback,),
+            daemon=True,
+        )
+        self._monitor_thread.start()
+
+    def _monitor_sweep_loop(self, callback: Callable = None):
+        """Periodic fallback sweep for reliability when OS events are dropped."""
+        stop_event = self._monitor_stop_event
+        if stop_event is None:
+            return
+
+        while not stop_event.wait(3.0):
+            for folder in list(self._monitored_folders):
+                if not os.path.isdir(folder):
+                    continue
+                try:
+                    self._process_monitor_folder(folder, callback)
+                except Exception as exc:
+                    self.logger.error(f"Monitor sweep failed for {folder}: {exc}")
+
+    def _process_monitor_folder(self, folder: str, callback: Callable = None):
+        plan = self.build_plan(folder)
+        if plan.total_files == 0:
+            return
+
+        records = self.execute_plan(plan, folder)
+        if not records:
+            return
+
+        self.logger.info(f"[Monitor sweep] Organized {len(records)} file(s) for: {folder}")
+        if callback:
+            category_by_source = {src: cat for src, _, cat in plan.moves}
+            for record in records:
+                callback(record.source, record.destination, category_by_source.get(record.source, "Others"))
+
     def stop_monitoring(self):
+        if self._monitor_stop_event is not None:
+            self._monitor_stop_event.set()
+            self._monitor_stop_event = None
+        if self._monitor_thread:
+            self._monitor_thread.join(timeout=3)
+            self._monitor_thread = None
+
         if self._monitor_observer:
             self._monitor_observer.stop()
             self._monitor_observer.join(timeout=3)
             self._monitor_observer = None
             self.logger.info("Monitoring stopped.")
+        self._monitored_folders = []
 
     @property
     def is_monitoring(self) -> bool:
@@ -676,56 +726,215 @@ class FolderEventHandler(FileSystemEventHandler):
         super().__init__()
         self.organizer = organizer
         self.callback = callback
-        self._pending: Dict[str, float] = {}  # debounce
+        self._pending: Dict[str, float] = {}
+        self._pending_folders: Dict[str, float] = {}
+        self._folder_workers: Dict[str, threading.Thread] = {}
         self._lock = threading.Lock()
+        self._process_lock = threading.Lock()
+        self._debounce_seconds = 2.0
 
     def on_created(self, event):
         if event.is_directory:
+            self._enqueue_folder(event.src_path)
             return
-        path = event.src_path
+        self._enqueue(event.src_path)
+
+    def on_moved(self, event):
+        if event.is_directory:
+            self._enqueue_folder(event.dest_path)
+            return
+        self._enqueue(event.dest_path)
+
+    def on_modified(self, event):
+        if event.is_directory:
+            self._enqueue_folder(event.src_path)
+        else:
+            self._enqueue(event.src_path)
+
+    def _enqueue(self, path: str):
+        folder = os.path.dirname(path)
+        if not folder:
+            return
         with self._lock:
             self._pending[path] = time.time()
-        threading.Thread(target=self._delayed_organize, args=(path,), daemon=True).start()
+            self._pending_folders[folder] = time.time()
+            worker = self._folder_workers.get(folder)
+            if worker is None or not worker.is_alive():
+                worker = threading.Thread(target=self._folder_worker, args=(folder,), daemon=True)
+                self._folder_workers[folder] = worker
+                worker.start()
 
-    def _delayed_organize(self, path: str):
-        """Wait briefly to ensure file write is complete before organizing."""
-        time.sleep(1.5)
+    def _enqueue_folder(self, folder: str):
+        if not folder:
+            return
         with self._lock:
-            if path not in self._pending:
+            self._pending_folders[folder] = time.time()
+            worker = self._folder_workers.get(folder)
+            if worker is None or not worker.is_alive():
+                worker = threading.Thread(target=self._folder_worker, args=(folder,), daemon=True)
+                self._folder_workers[folder] = worker
+                worker.start()
+
+    def _folder_worker(self, folder: str):
+        idle_ticks = 0
+        while True:
+            time.sleep(0.75)
+            now = time.time()
+            batch: List[str] = []
+            should_process = False
+
+            with self._lock:
+                dirty_at = self._pending_folders.get(folder)
+                has_pending_for_folder = dirty_at is not None
+                if has_pending_for_folder and now - dirty_at >= self._debounce_seconds:
+                    should_process = True
+                    for path in list(self._pending.keys()):
+                        if os.path.dirname(path) == folder:
+                            batch.append(path)
+                            self._pending.pop(path, None)
+                    self._pending_folders.pop(folder, None)
+
+            if should_process:
+                idle_ticks = 0
+                self._process_folder_batch(folder, batch)
+                continue
+
+            if has_pending_for_folder:
+                idle_ticks = 0
+                continue
+
+            idle_ticks += 1
+            if idle_ticks >= 3:
+                with self._lock:
+                    current = self._folder_workers.get(folder)
+                    if current is threading.current_thread():
+                        del self._folder_workers[folder]
                 return
-            del self._pending[path]
 
-        if not os.path.exists(path):
-            return
+    def _wait_until_stable(self, path: str, timeout: float = 12.0) -> bool:
+        deadline = time.time() + timeout
+        last_size = -1
+        last_mtime = -1.0
+        stable_ticks = 0
 
-        folder = os.path.dirname(path)
-        category = self.organizer.categorizer.categorize(path)
-        if self.organizer._is_smart_media_detection_enabled() and category == "Videos":
+        while time.time() < deadline:
+            if not os.path.exists(path):
+                return False
             try:
-                sibling_files = [e.path for e in os.scandir(folder) if e.is_file()]
-            except Exception:
-                sibling_files = [path]
-            series_files = self.organizer.movie_detector.detect_webseries_files(sibling_files)
-            if path in series_files:
-                category = "WebSeries"
+                stat = os.stat(path)
+                current_size = stat.st_size
+                current_mtime = stat.st_mtime
+            except OSError:
+                time.sleep(0.25)
+                continue
+
+            if current_size == last_size and current_mtime == last_mtime:
+                stable_ticks += 1
+                if stable_ticks >= 3:
+                    return True
             else:
-                category = self.organizer._maybe_promote_to_movie(path, category)
-        target_folder = self.organizer._destination_folder_name(category)
-        dest_dir = os.path.join(folder, target_folder)
-        dest_path = self.organizer._resolve_conflict(os.path.join(dest_dir, os.path.basename(path)))
+                stable_ticks = 0
+                last_size = current_size
+                last_mtime = current_mtime
 
-        # Skip if already in a category folder
-        parent = os.path.basename(folder)
-        if parent in self.organizer.settings.get("excluded_folders", []):
-            return
+            time.sleep(0.25)
 
-        try:
-            os.makedirs(dest_dir, exist_ok=True)
-            shutil.move(path, dest_path)
-            record = FileMoveRecord(path, dest_path)
-            self.organizer.history.push_session([record], folder)
-            self.organizer.logger.info(f"[Monitor→{category}] {os.path.basename(path)}")
+        return os.path.exists(path)
+
+    def _process_folder_batch(self, folder: str, candidates: List[str]):
+        with self._process_lock:
+            stable_paths: List[str] = []
+            for path in candidates:
+                if self._wait_until_stable(path):
+                    stable_paths.append(path)
+
+            stable_paths = [p for p in stable_paths if os.path.exists(p)]
+            if not stable_paths:
+                try:
+                    stable_paths = [entry.path for entry in os.scandir(folder) if entry.is_file()]
+                except Exception:
+                    stable_paths = []
+                if not stable_paths:
+                    return
+
+            excluded_folders = set(self.organizer.settings.get("excluded_folders", []))
+            excluded_exts = set(e.lower() for e in self.organizer.settings.get("excluded_extensions", []))
+
+            try:
+                sibling_paths = [entry.path for entry in os.scandir(folder) if entry.is_file()]
+            except Exception:
+                sibling_paths = list(stable_paths)
+
+            duplicate_paths = set()
+            if bool(self.organizer.settings.get("enable_duplicate_detection", False)):
+                duplicate_paths = self.organizer.duplicate_detector.find_duplicates(sibling_paths)
+
+            plan = OrganizationPlan()
+
+            for path in stable_paths:
+                if not os.path.exists(path):
+                    continue
+
+                ext = Path(path).suffix.lower()
+                if ext in excluded_exts:
+                    plan.add_skip(path, f"Excluded extension: {ext}")
+                    continue
+
+                if self.organizer._is_protected_recent_file(path):
+                    plan.add_skip(path, "Protected recent file")
+                    continue
+
+                parent_name = os.path.basename(os.path.dirname(path))
+                if parent_name in excluded_folders:
+                    plan.add_skip(path, "Already organized")
+                    continue
+
+                decision = self.organizer.analyze_file(path, sibling_video_paths=sibling_paths)
+                category = decision.category
+                if path in duplicate_paths:
+                    category = "Duplicates"
+                    decision.confidence = 98
+                    decision.reasons.append("Detected duplicate content by file hash")
+
+                target_folder = self.organizer._destination_folder_name(category)
+                dest_dir = os.path.join(folder, target_folder)
+                dest_path = os.path.join(dest_dir, os.path.basename(path))
+                conflict_policy = self.organizer._conflict_policy(category)
+
+                if os.path.exists(dest_path):
+                    if conflict_policy == "skip":
+                        plan.add_skip(path, f"Conflict policy skip: {os.path.basename(path)} already exists")
+                        continue
+                    if conflict_policy == "rename":
+                        dest_path = self.organizer._resolve_conflict(dest_path)
+
+                if not os.path.exists(dest_dir):
+                    plan.add_new_dir(dest_dir)
+
+                reasons = list(decision.reasons)
+                if target_folder != category:
+                    reasons.append(f"Destination folder mapped to: {target_folder}")
+                reasons.append(f"Conflict policy: {conflict_policy}")
+
+                plan.add_move(
+                    path,
+                    dest_path,
+                    category,
+                    confidence=decision.confidence,
+                    reasons=reasons,
+                    conflict_policy=conflict_policy,
+                )
+
+            if plan.total_files == 0:
+                return
+
+            records = self.organizer.execute_plan(plan, folder)
+            self.organizer.logger.info(
+                f"[Monitor] Organized {len(records)} file(s) in one session for: {folder}"
+            )
+
             if self.callback:
-                self.callback(path, dest_path, category)
-        except Exception as e:
-            self.organizer.logger.error(f"Monitor organize failed: {e}")
+                category_by_source = {src: cat for src, _, cat in plan.moves}
+                for record in records:
+                    category = category_by_source.get(record.source, "Others")
+                    self.callback(record.source, record.destination, category)
