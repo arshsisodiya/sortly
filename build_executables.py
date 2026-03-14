@@ -236,7 +236,7 @@ def _gui_common_args() -> list[str]:
 
     # Check for icon
     icon_flag = []
-    icon_path = BASE_DIR / "assets" / "sortly_logos" / "ICO" / "sortly.ico"
+    icon_path = BASE_DIR / "assets" / "sortly_logos" / "PNG" / "transparent" / "sortly_transparent.ico"
     if icon_path.exists():
         icon_flag = ["--icon", str(icon_path)]
 

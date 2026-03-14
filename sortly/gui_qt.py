@@ -59,10 +59,10 @@ def _candidate_base_dirs() -> list[Path]:
 
 def _find_logo_path() -> Optional[Path]:
     names = [
-        "sortly_logos/ICO/sortly.ico",
+        "sortly_logos/PNG/transparent/sortly_transparent_128x128.png",
         "sortly_logos/PNG/transparent/sortly_transparent_512x512.png",
         "sortly_logos/PNG/transparent/sortly_transparent_256x256.png",
-        "sortly_logos/PNG/dark/sortly_dark_256x256.png",
+        "sortly_logos/PNG/transparent/sortly_transparent_64x64.png",
     ]
     for base in _candidate_base_dirs():
         for assets_name in ("assets", "Assets"):

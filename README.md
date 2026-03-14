@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="assets/sortly_logos/PNG/dark/sortly_dark_128x128.png" alt="Sortly Logo" width="96"/>
+  <img src="assets/sortly_logos/PNG/transparent/sortly_transparent_128x128.png" alt="Sortly Logo" width="96"/>
   <h1>Sortly</h1>
   <p><strong>Smart Windows File Organizer</strong></p>
   <p>
