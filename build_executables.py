@@ -2,10 +2,12 @@
 
 Usage:
     python build_executables.py               # build everything (PyInstaller + Inno Setup)
+    python build_executables.py --v 1.2.3     # build with a custom app/installer version
     python build_executables.py --skip-installer  # PyInstaller only (used by CI before ISCC step)
     python build_executables.py --skip-portable   # skip portable GUI onefile build
 """
 
+import argparse
 import os
 import sys
 import subprocess
@@ -18,9 +20,6 @@ BASE_DIR = Path(__file__).parent.resolve()
 DIST_DIR = BASE_DIR / "dist"
 BUILD_DIR = BASE_DIR / "build"
 UPX_DIR  = BASE_DIR / "tools" / "upx"
-
-SKIP_INSTALLER = "--skip-installer" in sys.argv
-SKIP_PORTABLE = "--skip-portable" in sys.argv
 
 # UPX release to download when not found in PATH or tools/upx/
 _UPX_VERSION = "4.2.4"
@@ -91,8 +90,18 @@ def _find_or_download_upx() -> Path | None:
         return None
 
 
-def _get_version() -> str:
+def _parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Build Sortly executables and installer.")
+    parser.add_argument("--skip-installer", action="store_true", help="Skip Inno Setup installer build")
+    parser.add_argument("--skip-portable", action="store_true", help="Skip portable GUI onefile build")
+    parser.add_argument("--v", "--version", dest="version", help="Override app version (e.g. 1.2.3)")
+    return parser.parse_args()
+
+
+def _get_version(cli_version: str | None = None) -> str:
     """Return the app version: APP_VERSION env var (set by CI) or package __version__."""
+    if cli_version and str(cli_version).strip():
+        return str(cli_version).strip()
     v = os.environ.get("APP_VERSION", "").strip()
     if v:
         return v
@@ -332,11 +341,13 @@ def build_gui_portable_onefile() -> bool:
 
 
 def main():
+    args = _parse_args()
+
     print("=" * 60)
     print("  Sortly - Build System")
     print("=" * 60)
 
-    version = _get_version()
+    version = _get_version(args.version)
     print(f"\n  Version: {version}")
 
     # Check PyInstaller
@@ -367,10 +378,10 @@ def main():
     ok_portable = True
     ok_installer = True
 
-    if not SKIP_PORTABLE:
+    if not args.skip_portable:
         ok_portable = build_gui_portable_onefile()
 
-    if ok_gui and not SKIP_INSTALLER:
+    if ok_gui and not args.skip_installer:
         ok_installer = build_installer(version)
 
     print("\n" + "=" * 60)
