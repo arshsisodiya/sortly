@@ -5,6 +5,7 @@ Usage:
     python build_executables.py --v 1.2.3     # build with a custom app/installer version
     python build_executables.py --skip-installer  # PyInstaller only (used by CI before ISCC step)
     python build_executables.py --skip-portable   # skip portable GUI onefile build
+    python build_executables.py --with-cli-exe    # also build sortly-cli.exe (optional)
 """
 
 import argparse
@@ -94,6 +95,7 @@ def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Build Sortly executables and installer.")
     parser.add_argument("--skip-installer", action="store_true", help="Skip Inno Setup installer build")
     parser.add_argument("--skip-portable", action="store_true", help="Skip portable GUI onefile build")
+    parser.add_argument("--with-cli-exe", action="store_true", help="Also build portable CLI executable")
     parser.add_argument("--v", "--version", dest="version", help="Override app version (e.g. 1.2.3)")
     return parser.parse_args()
 
@@ -191,6 +193,7 @@ _QT_EXCLUDE_MODULES = [
     "PySide6.QtNfc",
     "PySide6.QtSpatialAudio",
     "PySide6.QtConcurrent",
+    "PySide6.QtVirtualKeyboard",
 ]
 
 # Qt6 DLL name prefixes to delete from the onedir output after build.
@@ -219,6 +222,7 @@ _QT_DLL_PREFIXES_TO_REMOVE = (
     "Qt6Nfc",
     "Qt6SpatialAudio",
     "Qt6Concurrent",
+    "Qt6VirtualKeyboard",
 )
 
 
@@ -232,6 +236,30 @@ def _strip_unused_qt_dlls(gui_dist_dir: Path) -> None:
             removed += 1
     if removed:
         print(f"  Stripped {removed} unused Qt DLLs ({saved / 1_048_576:.1f} MB freed)")
+
+
+def _strip_qt_translations(gui_dist_dir: Path, keep_locales: tuple[str, ...] = ("en",)) -> None:
+    """Delete Qt translation files except selected locales.
+
+    Keeping English preserves the default desktop UX while trimming
+    non-essential locale resources from onedir bundles.
+    """
+    translations_dir = gui_dist_dir / "_internal" / "PySide6" / "translations"
+    if not translations_dir.exists():
+        return
+
+    keep_tags = {f"_{loc.lower()}" for loc in keep_locales}
+    removed, saved = 0, 0
+    for qm_file in translations_dir.glob("*.qm"):
+        stem = qm_file.stem.lower()
+        if any(stem.endswith(tag) for tag in keep_tags):
+            continue
+        saved += qm_file.stat().st_size
+        qm_file.unlink()
+        removed += 1
+
+    if removed:
+        print(f"  Stripped {removed} Qt translation files ({saved / 1_048_576:.1f} MB freed)")
 
 
 def _gui_common_args() -> list[str]:
@@ -285,6 +313,7 @@ def build_gui_onedir() -> bool:
     result = subprocess.run(cmd, cwd=BASE_DIR)
     if result.returncode == 0:
         _strip_unused_qt_dlls(DIST_DIR / "Sortly")
+        _strip_qt_translations(DIST_DIR / "Sortly")
         print("  OK  GUI onedir built: dist/Sortly/Sortly.exe")
     else:
         print("  ERR GUI onedir build failed.")
@@ -373,10 +402,16 @@ def main():
     print()
     clean()
 
-    ok_cli = build_cli()
+    ok_cli = True
+    if args.with_cli_exe:
+        ok_cli = build_cli()
+    else:
+        print("[*] Skipping CLI executable build (default).")
+        print("    Use --with-cli-exe if you need dist/sortly-cli.exe")
+
     ok_gui = build_gui_onedir()
-    ok_portable = True
-    ok_installer = True
+    ok_portable = args.skip_portable
+    ok_installer = args.skip_installer
 
     if not args.skip_portable:
         ok_portable = build_gui_portable_onefile()
@@ -388,15 +423,19 @@ def main():
     if ok_cli and ok_gui and ok_portable:
         print("  Build complete!")
         print(f"\n  Output files:")
-        print(f"    dist/sortly-cli.exe             -- Portable CLI tool")
+        if args.with_cli_exe:
+            print(f"    dist/sortly-cli.exe             -- Portable CLI tool")
         print(f"    dist/Sortly/Sortly.exe          -- GUI bundle for installer (onedir)")
-        if ok_portable:
+        if not args.skip_portable and ok_portable:
             print(f"    dist/SortlyPortable.exe         -- Portable GUI (onefile)")
-        if ok_installer:
+        if not args.skip_installer and ok_installer:
             print(f"    dist/SortlySetup-{version}.exe  -- Windows installer")
         print(f"\n  CLI usage:")
-        print(f"    sortly-cli.exe organize C:\\Users\\You\\Downloads --auto")
-        print(f"    sortly-cli.exe --help")
+        if args.with_cli_exe:
+            print(f"    sortly-cli.exe organize C:\\Users\\You\\Downloads --auto")
+            print(f"    sortly-cli.exe --help")
+        print(f"    python -m sortly organize C:\\Users\\You\\Downloads --auto")
+        print(f"    python -m sortly --help")
     else:
         print("  Build completed with errors.")
     print("=" * 60)

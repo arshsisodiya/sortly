@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sortly"
+version = "1.0.0"
+description = "Sortly CLI and core engine for smart file organization"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [
+  { name = "Arsh Sisodiya" }
+]
+dependencies = [
+  "watchdog>=3.0.0",
+  "pymediainfo>=6.1.0"
+]
+
+[project.optional-dependencies]
+gui = [
+  "PySide6>=6.7.0"
+]
+
+[project.scripts]
+sortly = "sortly.cli:main"
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.packages.find]
+include = ["sortly*"]
+exclude = ["build*", "dist*", "installer*", "assets*", "__pycache__*"]

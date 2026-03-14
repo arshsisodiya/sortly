@@ -56,7 +56,30 @@ Sortly automatically organizes files into categories like Documents, Images, Vid
 ```bash
 git clone https://github.com/your-username/sortly.git
 cd sortly
-pip install -r requirements.txt
+pip install .
+```
+
+Install GUI dependencies when you want to run the desktop app:
+
+```bash
+pip install ".[gui]"
+```
+
+### Install CLI as a package (recommended)
+
+```bash
+# From GitHub
+pip install "git+https://github.com/your-username/sortly.git"
+
+# Then run
+sortly --help
+```
+
+Use `pipx` for isolated global CLI installs:
+
+```bash
+pipx install "git+https://github.com/your-username/sortly.git"
+sortly --help
 ```
 
 ### Run the desktop app
@@ -68,6 +91,13 @@ python sortly_gui_qt.py
 ### Run the CLI
 
 ```bash
+# Installed command
+sortly --help
+
+# Module mode (no PATH setup needed)
+python -m sortly --help
+
+# Legacy wrapper (optional)
 python sortly_cli.py --help
 ```
 
@@ -77,8 +107,13 @@ python sortly_cli.py --help
 python build_executables.py
 ```
 
-Produces `dist/Sortly/Sortly.exe` (GUI), `dist/sortly-cli.exe` (CLI), and `dist/SortlySetup-1.0.0.exe` (Windows installer, requires [Inno Setup 6](https://jrsoftware.org/isinfo.php)).
-Also builds `dist/SortlyPortable.exe` for a no-install portable GUI build.
+Produces `dist/Sortly/Sortly.exe` (GUI), `dist/SortlyPortable.exe` (portable GUI), and `dist/SortlySetup-1.0.0.exe` (Windows installer, requires [Inno Setup 6](https://jrsoftware.org/isinfo.php)).
+
+To also build the optional standalone CLI executable:
+
+```bash
+python build_executables.py --with-cli-exe
+```
 
 ---
 
@@ -86,28 +121,28 @@ Also builds `dist/SortlyPortable.exe` for a no-install portable GUI build.
 
 ```bash
 # Organize a folder (dry-run preview)
-python sortly_cli.py organize "C:\Users\You\Downloads" --dry-run --details
+sortly organize "C:\Users\You\Downloads" --dry-run --details
 
 # Organize immediately without prompts
-python sortly_cli.py organize "C:\Users\You\Downloads" --auto
+sortly organize "C:\Users\You\Downloads" --auto
 
 # Monitor folders in real-time (Ctrl+C to stop)
-python sortly_cli.py monitor "C:\Users\You\Downloads" --save
+sortly monitor "C:\Users\You\Downloads" --save
 
 # Undo the last session
-python sortly_cli.py undo --yes
+sortly undo --yes
 
 # Add a custom rule
-python sortly_cli.py rules add invoice Documents
+sortly rules add invoice Documents
 
 # Apply a smart preset
-python sortly_cli.py presets apply Developer
+sortly presets apply Developer
 
 # Show all settings
-python sortly_cli.py settings show
+sortly settings show
 
 # Export config
-python sortly_cli.py config export my-settings.json
+sortly config export my-settings.json
 ```
 
 > See [DOCS.md](DOCS.md) for complete CLI reference and detailed guides.
@@ -154,7 +189,7 @@ sortly/
 |  |- workflows/
 |     |- release.yml        GitHub Actions: build + release on version tags
 |- sortly_gui_qt.py         GUI entrypoint
-|- sortly_cli.py            CLI entrypoint
+|- sortly_cli.py            Legacy CLI wrapper entrypoint
 |- build_executables.py     PyInstaller + Inno Setup build script
 |- requirements.txt
 |- README.md
@@ -184,7 +219,9 @@ git tag v1.0.0
 git push origin v1.0.0
 ```
 
-The GitHub Actions workflow builds `SortlySetup-1.0.0.exe`, `SortlyPortable.exe`, and `sortly-cli.exe`, then creates a GitHub Release with all three as downloadable assets.
+The GitHub Actions workflow builds `SortlySetup-x.y.z.exe` and `SortlyPortable.exe`, builds Python package artifacts (`.whl` + `.tar.gz`), and creates a GitHub Release with those files.
+
+The CLI is primarily distributed as a Python package (`sortly` command). Each tagged release includes package artifacts alongside GUI binaries.
 
 ---
 

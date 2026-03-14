@@ -33,7 +33,7 @@ jobs:
           cache: 'pip'
 
       - name: Install Python dependencies
-        run: pip install -r requirements.txt pyinstaller
+        run: pip install -r requirements.txt pyinstaller build twine
 
       # Install UPX so PyInstaller can compress executables in CI
       - name: Install UPX
@@ -55,14 +55,31 @@ jobs:
         shell: pwsh
         run: '"APP_VERSION=${{ steps.version.outputs.VERSION }}" | Out-File -FilePath $env:GITHUB_ENV -Append'
 
+      - name: Sync package version from tag
+        shell: pwsh
+        run: |
+          $version = "${{ steps.version.outputs.VERSION }}"
+          python -c "from pathlib import Path; import re; v='${{ steps.version.outputs.VERSION }}'; p=Path('sortly/__init__.py'); t=p.read_text(encoding='utf-8'); t=re.sub(r'__version__\\s*=\\s*\"[^\"]+\"', f'__version__ = \"{v}\"', t, count=1); p.write_text(t, encoding='utf-8')"
+          python -c "from pathlib import Path; import re; v='${{ steps.version.outputs.VERSION }}'; p=Path('pyproject.toml'); t=p.read_text(encoding='utf-8'); t=re.sub(r'version\\s*=\\s*\"[^\"]+\"', f'version = \"{v}\"', t, count=1); p.write_text(t, encoding='utf-8')"
+          Write-Host "Synced package version to $version"
+
       # --------------------------------------------------------
-      # 4. PyInstaller — CLI (onefile) + GUI (onedir)
+      # 4. PyInstaller — GUI bundle(s)
       # --------------------------------------------------------
       - name: Build PyInstaller executables
         run: python build_executables.py --skip-installer
 
       # --------------------------------------------------------
-      # 5. Inno Setup — build the Windows installer
+      # 5. Build Python package artifacts
+      # --------------------------------------------------------
+      - name: Build Python package
+        run: python -m build
+
+      - name: Validate package metadata
+        run: python -m twine check dist/*
+
+      # --------------------------------------------------------
+      # 6. Inno Setup — build the Windows installer
       # --------------------------------------------------------
       - name: Install Inno Setup 6
         run: choco install innosetup --yes --no-progress
@@ -80,17 +97,17 @@ jobs:
           }
 
       # --------------------------------------------------------
-      # 6. Show artifacts
+      # 7. Show artifacts
       # --------------------------------------------------------
       - name: List release artifacts
         shell: pwsh
         run: |
           Get-ChildItem dist\ -Recurse |
-            Where-Object { -not $_.PSIsContainer -and ($_.Extension -in '.exe', '.zip') } |
+            Where-Object { -not $_.PSIsContainer -and ($_.Extension -in '.exe', '.zip', '.whl', '.gz') } |
             Format-Table Name, @{N='Size (MB)';E={[math]::Round($_.Length/1MB,2)}}
 
       # --------------------------------------------------------
-      # 7. Publish GitHub Release
+      # 8. Publish GitHub Release
       # --------------------------------------------------------
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
@@ -102,5 +119,6 @@ jobs:
           generate_release_notes: true
           files: |
             dist/SortlySetup-${{ steps.version.outputs.VERSION }}.exe
-            dist/sortly-cli.exe
             dist/SortlyPortable.exe
+            dist/*.whl
+            dist/*.tar.gz

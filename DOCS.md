@@ -58,7 +58,7 @@ exactly what it intends to do before moving anything.
 | Interface | Use when |
 |---|---|
 | Desktop App (`sortly_gui_qt.py`) | Day-to-day use, visual feedback, settings UI |
-| CLI (`sortly_cli.py`) | Scripting, automation, CI pipelines, headless servers |
+| CLI (`sortly`) | Scripting, automation, CI pipelines, headless servers |
 
 Both interfaces share the same `sortly/core.py` engine and the same settings file.
 
@@ -71,7 +71,24 @@ Both interfaces share the same `sortly/core.py` engine and the same settings fil
 ```bash
 git clone https://github.com/your-username/sortly.git
 cd sortly
-pip install -r requirements.txt
+pip install .
+```
+
+### CLI package install (recommended)
+
+```bash
+# From GitHub
+pip install "git+https://github.com/your-username/sortly.git"
+
+# Then run
+sortly --help
+```
+
+For isolated global CLI installs:
+
+```bash
+pipx install "git+https://github.com/your-username/sortly.git"
+sortly --help
 ```
 
 **requirements.txt** installs:
@@ -82,6 +99,13 @@ pip install -r requirements.txt
 | `watchdog` | Filesystem monitoring |
 | `pymediainfo` | Smart movie/series detection |
 
+`pip install .` installs the CLI/core dependencies by default.
+Install GUI extras when needed:
+
+```bash
+pip install ".[gui]"
+```
+
 ### From installer
 
 Download `SortlySetup-x.y.z.exe` from the [Releases](https://github.com/your-username/sortly/releases) page and run it. The installer places `Sortly.exe` in `Program Files\Sortly` and adds a Start Menu shortcut.
@@ -89,7 +113,7 @@ Download `SortlySetup-x.y.z.exe` from the [Releases](https://github.com/your-use
 ### Portable builds
 
 - Download `SortlyPortable.exe` from Releases and run it directly.
-- Download `sortly-cli.exe` from Releases for a standalone CLI — no installer, no Python required.
+- CLI is primarily distributed as a Python package (`sortly` command). A standalone `sortly-cli.exe` is optional.
 
 ---
 
@@ -210,18 +234,21 @@ Undo only works if the destination files still exist in the locations Sortly mov
 Launch the CLI:
 
 ```bash
-# From source
-python sortly_cli.py [command] [options]
+# From source (module mode)
+python -m sortly [command] [options]
 
-# Installed CLI
+# Installed package CLI
+sortly [command] [options]
+
+# Optional standalone executable
 sortly-cli.exe [command] [options]
 ```
 
 Global help:
 
 ```bash
-python sortly_cli.py --help
-python sortly_cli.py help
+sortly --help
+sortly help
 ```
 
 ---
@@ -231,7 +258,7 @@ python sortly_cli.py help
 Scan a folder and organize files into sub-folders.
 
 ```bash
-python sortly_cli.py organize <PATH> [OPTIONS]
+sortly organize <PATH> [OPTIONS]
 ```
 
 **Options:**
@@ -250,19 +277,19 @@ python sortly_cli.py organize <PATH> [OPTIONS]
 
 ```bash
 # Review what will happen before touching anything
-python sortly_cli.py organize "C:\Users\You\Downloads" --dry-run --details
+sortly organize "C:\Users\You\Downloads" --dry-run --details
 
 # Show skipped files as well
-python sortly_cli.py organize "C:\Users\You\Downloads" --dry-run --details --show-skipped
+sortly organize "C:\Users\You\Downloads" --dry-run --details --show-skipped
 
 # Execute without prompts (good for scripts)
-python sortly_cli.py organize "C:\Users\You\Downloads" --auto
+sortly organize "C:\Users\You\Downloads" --auto
 
 # Only show the summary, not the full per-file list
-python sortly_cli.py organize "C:\Users\You\Downloads" --no-preview --auto
+sortly organize "C:\Users\You\Downloads" --no-preview --auto
 
 # Limit the preview to the first 20 files
-python sortly_cli.py organize "C:\Users\You\Downloads" --limit 20
+sortly organize "C:\Users\You\Downloads" --limit 20
 ```
 
 **Exit codes:**
@@ -280,7 +307,7 @@ python sortly_cli.py organize "C:\Users\You\Downloads" --limit 20
 Watch one or more folders and auto-organize new files as they arrive.
 
 ```bash
-python sortly_cli.py monitor <PATH1> [PATH2 ...] [OPTIONS]
+sortly monitor <PATH1> [PATH2 ...] [OPTIONS]
 ```
 
 **Options:**
@@ -295,13 +322,13 @@ python sortly_cli.py monitor <PATH1> [PATH2 ...] [OPTIONS]
 
 ```bash
 # Monitor Downloads in real-time (Ctrl+C to stop)
-python sortly_cli.py monitor "C:\Users\You\Downloads"
+sortly monitor "C:\Users\You\Downloads"
 
 # Monitor multiple folders and save them
-python sortly_cli.py monitor "C:\Users\You\Downloads" "C:\Users\You\Desktop" --save
+sortly monitor "C:\Users\You\Downloads" "C:\Users\You\Desktop" --save
 
 # Reuse saved folders
-python sortly_cli.py monitor --use-saved
+sortly monitor --use-saved
 ```
 
 **Behavior:**
@@ -317,7 +344,7 @@ python sortly_cli.py monitor --use-saved
 Revert file moves from a past session.
 
 ```bash
-python sortly_cli.py undo [OPTIONS]
+sortly undo [OPTIONS]
 ```
 
 **Options:**
@@ -332,14 +359,14 @@ python sortly_cli.py undo [OPTIONS]
 
 ```bash
 # Preview what the latest undo would restore
-python sortly_cli.py undo --preview
+sortly undo --preview
 
 # Undo the latest session
-python sortly_cli.py undo --yes
+sortly undo --yes
 
 # Undo a specific session (list sessions first)
-python sortly_cli.py history list
-python sortly_cli.py undo --session 3 --yes
+sortly history list
+sortly undo --session 3 --yes
 ```
 
 ---
@@ -349,7 +376,7 @@ python sortly_cli.py undo --session 3 --yes
 Manage and test custom classification rules.
 
 ```bash
-python sortly_cli.py rules <subcommand> [OPTIONS]
+sortly rules <subcommand> [OPTIONS]
 ```
 
 **Subcommands:**
@@ -365,20 +392,20 @@ python sortly_cli.py rules <subcommand> [OPTIONS]
 
 ```bash
 # See all rules
-python sortly_cli.py rules list
+sortly rules list
 
 # Add a rule: filenames containing "invoice" go to Documents
-python sortly_cli.py rules add invoice Documents
+sortly rules add invoice Documents
 
 # Add a rule: filenames containing "budget" go to Documents
-python sortly_cli.py rules add budget Documents
+sortly rules add budget Documents
 
 # Remove rule #2
-python sortly_cli.py rules remove 2
+sortly rules remove 2
 
 # Test classification of a filename
-python sortly_cli.py rules test "show.s01e01.mkv"
-python sortly_cli.py rules test "Q3_invoice_2026.pdf"
+sortly rules test "show.s01e01.mkv"
+sortly rules test "Q3_invoice_2026.pdf"
 ```
 
 **Valid category names:**
@@ -392,7 +419,7 @@ python sortly_cli.py rules test "Q3_invoice_2026.pdf"
 Apply curated settings bundles.
 
 ```bash
-python sortly_cli.py presets <subcommand>
+sortly presets <subcommand>
 ```
 
 **Subcommands:**
@@ -415,9 +442,9 @@ python sortly_cli.py presets <subcommand>
 **Examples:**
 
 ```bash
-python sortly_cli.py presets list
-python sortly_cli.py presets show Developer
-python sortly_cli.py presets apply Developer
+sortly presets list
+sortly presets show Developer
+sortly presets apply Developer
 ```
 
 ---
@@ -427,7 +454,7 @@ python sortly_cli.py presets apply Developer
 Inspect the session history.
 
 ```bash
-python sortly_cli.py history <subcommand>
+sortly history <subcommand>
 ```
 
 **Subcommands:**
@@ -441,10 +468,10 @@ python sortly_cli.py history <subcommand>
 
 ```bash
 # See the last 10 sessions
-python sortly_cli.py history list
+sortly history list
 
 # Drill into session 2
-python sortly_cli.py history show 2
+sortly history show 2
 ```
 
 ---
@@ -454,7 +481,7 @@ python sortly_cli.py history show 2
 Export or import the full settings bundle.
 
 ```bash
-python sortly_cli.py config <subcommand>
+sortly config <subcommand>
 ```
 
 **Subcommands:**
@@ -469,19 +496,19 @@ python sortly_cli.py config <subcommand>
 
 ```bash
 # View current config
-python sortly_cli.py config show
+sortly config show
 
 # Back up settings
-python sortly_cli.py config export sortly-backup.json
+sortly config export sortly-backup.json
 
 # Restore settings
-python sortly_cli.py config import sortly-backup.json
+sortly config import sortly-backup.json
 
 # Copy settings between machines
 # 1. On machine A:
-python sortly_cli.py config export sortly-config.json
+sortly config export sortly-config.json
 # 2. Copy sortly-config.json to machine B, then:
-python sortly_cli.py config import sortly-config.json
+sortly config import sortly-config.json
 ```
 
 ---
@@ -491,7 +518,7 @@ python sortly_cli.py config import sortly-config.json
 Read and write individual settings keys.
 
 ```bash
-python sortly_cli.py settings <subcommand>
+sortly settings <subcommand>
 ```
 
 **Subcommands:**
@@ -506,25 +533,25 @@ python sortly_cli.py settings <subcommand>
 
 ```bash
 # Show all settings
-python sortly_cli.py settings show
+sortly settings show
 
 # Read a single value
-python sortly_cli.py settings get enable_duplicate_detection
-python sortly_cli.py settings get protect_recent_minutes
+sortly settings get enable_duplicate_detection
+sortly settings get protect_recent_minutes
 
 # Toggle booleans
-python sortly_cli.py settings set enable_duplicate_detection true
-python sortly_cli.py settings set protect_recent_files true
-python sortly_cli.py settings set protect_recent_minutes 60
+sortly settings set enable_duplicate_detection true
+sortly settings set protect_recent_files true
+sortly settings set protect_recent_minutes 60
 
 # Update a list value (JSON syntax)
-python sortly_cli.py settings set excluded_extensions "[".tmp", ".bak", ".log"]"
+sortly settings set excluded_extensions "[".tmp", ".bak", ".log"]"
 
 # Update a dict value (JSON syntax)
-python sortly_cli.py settings set category_folder_map "{\"Audio\": \"Music\", \"Videos\": \"Media\"}"
+sortly settings set category_folder_map "{\"Audio\": \"Music\", \"Videos\": \"Media\"}"
 
 # Update conflict policy per category
-python sortly_cli.py settings set category_conflict_policy "{\"Documents\": \"skip\", \"Images\": \"rename\"}"
+sortly settings set category_conflict_policy "{\"Documents\": \"skip\", \"Images\": \"rename\"}"
 ```
 
 ---
@@ -534,7 +561,7 @@ python sortly_cli.py settings set category_conflict_policy "{\"Documents\": \"sk
 Configure and run scheduled organize cycles.
 
 ```bash
-python sortly_cli.py schedule <subcommand>
+sortly schedule <subcommand>
 ```
 
 **Subcommands:**
@@ -564,16 +591,16 @@ python sortly_cli.py schedule <subcommand>
 
 ```bash
 # View current schedule settings
-python sortly_cli.py schedule show
+sortly schedule show
 
 # Enable scheduling with 30-minute interval
-python sortly_cli.py schedule set --enabled true --interval 30
+sortly schedule set --enabled true --interval 30
 
 # Run 3 organize cycles on Downloads, 10 minutes apart
-python sortly_cli.py schedule run "C:\Users\You\Downloads" --interval 10 --iterations 3
+sortly schedule run "C:\Users\You\Downloads" --interval 10 --iterations 3
 
 # Test one dry-run cycle
-python sortly_cli.py schedule run "C:\Users\You\Downloads" --iterations 1 --dry-run
+sortly schedule run "C:\Users\You\Downloads" --iterations 1 --dry-run
 ```
 
 ---
@@ -583,7 +610,7 @@ python sortly_cli.py schedule run "C:\Users\You\Downloads" --iterations 1 --dry-
 List all categories and their file extensions.
 
 ```bash
-python sortly_cli.py categories
+sortly categories
 ```
 
 Prints the full list of categories with their associated extensions and icons.
@@ -594,18 +621,18 @@ Prints the full list of categories with their associated extensions and icons.
 
 ```bash
 # Full banner + command list
-python sortly_cli.py help
+sortly help
 
 # Topic guides
-python sortly_cli.py guide overview
-python sortly_cli.py guide organize
-python sortly_cli.py guide rules
-python sortly_cli.py guide presets
-python sortly_cli.py guide history
-python sortly_cli.py guide config
-python sortly_cli.py guide settings
-python sortly_cli.py guide monitor
-python sortly_cli.py guide schedule
+sortly guide overview
+sortly guide organize
+sortly guide rules
+sortly guide presets
+sortly guide history
+sortly guide config
+sortly guide settings
+sortly guide monitor
+sortly guide schedule
 ```
 
 ---
@@ -694,7 +721,7 @@ When a file with the same name already exists in the destination folder, Sortly 
 Set per-category from the GUI or via:
 
 ```bash
-python sortly_cli.py settings set category_conflict_policy "{\"Documents\": \"skip\"}"
+sortly settings set category_conflict_policy "{\"Documents\": \"skip\"}"
 ```
 
 ---
@@ -704,8 +731,8 @@ python sortly_cli.py settings set category_conflict_policy "{\"Documents\": \"sk
 When enabled, files modified within the configured time window are skipped entirely.
 
 ```bash
-python sortly_cli.py settings set protect_recent_files true
-python sortly_cli.py settings set protect_recent_minutes 60
+sortly settings set protect_recent_files true
+sortly settings set protect_recent_minutes 60
 ```
 
 This is useful when monitoring active working folders — you don't want a file you're currently editing to be moved mid-work.
@@ -718,10 +745,10 @@ The schedule system runs `organize` on a folder repeatedly at a set interval.
 
 ```bash
 # Save schedule settings
-python sortly_cli.py schedule set --enabled true --interval 15
+sortly schedule set --enabled true --interval 15
 
 # Start a scheduled session on Downloads
-python sortly_cli.py schedule run "C:\Users\You\Downloads"
+sortly schedule run "C:\Users\You\Downloads"
 ```
 
 Unlike monitoring (which reacts to filesystem events), scheduling is purely time-based — it re-scans the entire folder on each tick.
@@ -771,13 +798,13 @@ Every organize session writes a JSON record to `%USERPROFILE%\.sortly\history.js
 Sortly stores all settings in a single JSON file. You can export it, edit it manually, or import it on another machine.
 
 ```bash
-python sortly_cli.py config export sortly-config.json
+sortly config export sortly-config.json
 ```
 
 The exported file contains every setting key and value. You can edit it in any text editor. To apply it:
 
 ```bash
-python sortly_cli.py config import sortly-config.json
+sortly config import sortly-config.json
 ```
 
 The GUI has equivalent *Export Config* and *Import Config* buttons in the settings panel.
@@ -828,11 +855,17 @@ python build_executables.py
 
 1. Cleans `dist/` and `build/`
 2. Auto-detects or downloads UPX for compression
-3. Builds `dist/sortly-cli.exe` — portable CLI (PyInstaller `--onefile`)
-4. Builds `dist/Sortly/` — GUI onedir bundle (PyInstaller `--onedir`)
-5. Strips unused Qt DLLs from the onedir bundle
+3. Builds `dist/Sortly/` — GUI onedir bundle (PyInstaller `--onedir`)
+4. Strips unused Qt DLLs from the onedir bundle
+5. Strips non-English Qt translation packs to reduce size
 6. Builds `dist/SortlyPortable.exe` as a no-install portable GUI (`--onefile`)
 7. Compiles `dist/SortlySetup-x.y.z.exe` using Inno Setup (if ISCC.exe found)
+
+### Build with optional CLI executable
+
+```bash
+python build_executables.py --with-cli-exe
+```
 
 ### Build without installer (CI mode)
 
@@ -850,10 +883,11 @@ python build_executables.py --skip-installer
 
 | File | Description |
 |---|---|
-| `dist/sortly-cli.exe` | Portable single-file CLI — no install needed |
 | `dist/Sortly/Sortly.exe` | GUI app (onedir — run from the folder) |
 | `dist/SortlyPortable.exe` | Portable GUI executable (single file, no install) |
 | `dist/SortlySetup-1.0.0.exe` | Windows installer with Start Menu shortcuts and uninstaller |
+
+When built with `--with-cli-exe`, `dist/sortly-cli.exe` is also produced.
 
 ---
 
@@ -881,7 +915,7 @@ The workflow:
 5. Runs `python build_executables.py --skip-installer`
 6. Installs Inno Setup via Chocolatey
 7. Compiles the installer with ISCC
-8. Creates a GitHub Release with `SortlySetup-x.y.z.exe`, `SortlyPortable.exe`, and `sortly-cli.exe` as assets
+8. Creates a GitHub Release with GUI assets (`SortlySetup-x.y.z.exe`, `SortlyPortable.exe`) and package artifacts (`*.whl`, `*.tar.gz`)
 
 **Pre-releases:** tags with a hyphen (e.g. `v1.1.0-beta.1`) are automatically published as pre-releases.
 
@@ -939,9 +973,9 @@ Check whether:
 
 ```bash
 # Check each of these
-python sortly_cli.py settings get protect_recent_files
-python sortly_cli.py settings get excluded_extensions
-python sortly_cli.py settings get category_conflict_policy
+sortly settings get protect_recent_files
+sortly settings get excluded_extensions
+sortly settings get category_conflict_policy
 ```
 
 ### Undo says "file not found"
@@ -960,14 +994,14 @@ The Windows terminal uses cp1252 by default, which doesn't support Unicode box-d
 
 ```powershell
 $env:PYTHONUTF8 = "1"
-python sortly_cli.py ...
+sortly ...
 ```
 
 Or:
 
 ```powershell
 chcp 65001
-python sortly_cli.py ...
+sortly ...
 ```
 
 ---
