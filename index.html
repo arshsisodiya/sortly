@@ -1273,9 +1273,14 @@ footer{
         <span class="tag">Command line</span>
         <h2 style="margin-top:20px">Also a great CLI tool</h2>
         <p style="color:var(--text2);margin:16px 0 24px;line-height:1.7">
-          Everything in the GUI is also available from the terminal. Script it, schedule it, pipe it — Sortly speaks shell.
+          Everything in the GUI is also available from the terminal. Install the package, run <code style="background:var(--bg3);padding:2px 8px;border-radius:6px;font-size:0.82em;color:var(--sky)">sortly</code>, or use <code style="background:var(--bg3);padding:2px 8px;border-radius:6px;font-size:0.82em;color:var(--sky)">python -m sortly</code> anywhere Python is available.
         </p>
         <div style="display:flex;flex-direction:column;gap:12px">
+          <div style="display:flex;align-items:center;gap:12px;font-size:0.88rem;color:var(--text2)">
+            <span style="color:var(--green);font-size:1rem">→</span>
+            <code style="background:var(--bg3);padding:3px 10px;border-radius:6px;font-size:0.78rem;color:var(--sky)">python -m sortly</code>
+            Module fallback command
+          </div>
           <div style="display:flex;align-items:center;gap:12px;font-size:0.88rem;color:var(--text2)">
             <span style="color:var(--green);font-size:1rem">→</span>
             <code style="background:var(--bg3);padding:3px 10px;border-radius:6px;font-size:0.78rem;color:var(--sky)">--dry-run</code>
@@ -1306,6 +1311,12 @@ footer{
           <div class="term-dot" style="background:#28C840"></div>
         </div>
         <div class="terminal-body">
+          <div><span class="term-prompt">❯</span> <span class="term-cmd">pip install sortly</span></div>
+          <div><span class="term-success">  ✓  Installed Sortly CLI package</span></div>
+          <div class="term-out"></div>
+          <div><span class="term-prompt">❯</span> <span class="term-cmd">python -m sortly --help</span></div>
+          <div><span class="term-info">  ℹ  Module mode available</span></div>
+          <div class="term-out"></div>
           <div><span class="term-prompt">❯</span> <span class="term-cmd">sortly organize C:\Downloads --dry-run</span></div>
           <div class="term-out"></div>
           <div><span class="term-info">  ℹ  Scanning files…</span></div>
@@ -1347,6 +1358,9 @@ footer{
         </div>
         <div class="dl-name">Sortly</div>
         <div class="dl-tagline">Every file. Exactly where it belongs.</div>
+        <div style="margin-top:8px;color:var(--text2);font-size:0.82rem">
+          CLI: <code style="background:var(--bg3);padding:2px 8px;border-radius:6px;color:var(--sky)">pip install sortly</code>
+        </div>
 
         <div class="dl-version">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
